@@ -6,7 +6,11 @@
 
 #include <QMainWindow>
 #include <QCloseEvent>
-#include "sensorthread.h"
+#include <QTimerEvent>
+#include <QImage>
+
+#include <XnCppWrapper.h>
+
 #include "3dwidget.h"
 #include "sensorwidget.h"
 
@@ -24,14 +28,24 @@ public:
 
 protected:
     void closeEvent(QCloseEvent*);
+    void timerEvent(QTimerEvent*);
 
 private:
     Ui::MainWindow *ui;
-    SensorThread* mSensorThread;
     SensorWidget* mSensorWidget;
     ThreeDWidget* mThreeDWidget;
+    int mTimerId;
+    xn::ScriptNode mScriptNode;
+    xn::Context mContext;
+    xn::DepthGenerator mDepthGenerator;
+    xn::ImageGenerator mImageGenerator;
+    xn::DepthMetaData mDepthMetaData;
+    xn::ImageMetaData mImageMetaData;
 
 private: // methods
+    void initSensor(void);
+    void startSensor(void);
+    void stopSensor(void);
 
 private slots:
 

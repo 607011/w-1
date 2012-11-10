@@ -26,6 +26,9 @@ public: // methods
     QSize minimumSizeHint(void) const { return QSize(320, 240); }
     QSize sizeHint(void) const { return QSize(640, 480); }
 
+    void setXRotation(int);
+    void setYRotation(int);
+
 public slots:
     void videoFrameReady(const QImage&);
 
@@ -59,8 +62,6 @@ protected: // methods
     void keyPressEvent(QKeyEvent*);
 
 private: // methods
-    void setXRotation(int);
-    void setYRotation(int);
 
 };
 

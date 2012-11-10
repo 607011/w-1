@@ -10,7 +10,7 @@ SensorWidget::SensorWidget(QWidget* parent)
     , mWindowAspectRatio(640/480)
     , mImageAspectRatio(640/480)
 {
-    /* ... */
+    setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding);
 }
 
 

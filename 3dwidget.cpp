@@ -45,6 +45,7 @@ ThreeDWidget::ThreeDWidget(QWidget* parent)
 {
     setFocus(Qt::OtherFocusReason);
     setCursor(Qt::OpenHandCursor);
+    setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding);
 }
 
 
