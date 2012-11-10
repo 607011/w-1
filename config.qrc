@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/config">
+        <file alias="sample.xml">config/sample.xml</file>
+    </qresource>
+</RCC>
