@@ -17,7 +17,8 @@ SOURCES += main.cpp \
 
 HEADERS += mainwindow.h \
     3dwidget.h \
-    sensorwidget.h
+    sensorwidget.h \
+    main.h
 
 FORMS += mainwindow.ui
 

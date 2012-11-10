@@ -6,6 +6,7 @@
 
 #include <QMainWindow>
 #include <QCloseEvent>
+#include <QShowEvent>
 #include <QTimerEvent>
 #include <QImage>
 
@@ -29,6 +30,7 @@ public:
 protected:
     void closeEvent(QCloseEvent*);
     void timerEvent(QTimerEvent*);
+    void showEvent(QShowEvent*);
 
 private:
     Ui::MainWindow *ui;
@@ -46,6 +48,9 @@ private: // methods
     void initSensor(void);
     void startSensor(void);
     void stopSensor(void);
+
+    void saveSettings(void);
+    void restoreSettings(void);
 
 private slots:
 

@@ -28,6 +28,15 @@ public: // methods
 
     void setXRotation(int);
     void setYRotation(int);
+    void setZoom(float);
+
+    int xRotation(void) const { return mXRot; }
+    int yRotation(void) const { return mYRot; }
+    float zoom(void) const { return mZoom; }
+
+    static const float DefaultZoom;
+    static const float DefaultXRot;
+    static const float DefaultYRot;
 
 public slots:
     void videoFrameReady(const QImage&);
@@ -35,9 +44,6 @@ public slots:
 private: // variables
     static const QVector3D mVertices[4];
     static const QVector2D mTexCoords[4];
-    static const float DefaultZoom;
-    static const float DefaultXRot;
-    static const float DefaultYRot;
 
     int mXRot;
     int mYRot;

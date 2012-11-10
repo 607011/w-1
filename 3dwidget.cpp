@@ -221,3 +221,12 @@ void ThreeDWidget::setYRotation(int angle)
         updateGL();
     }
 }
+
+
+void ThreeDWidget::setZoom(float zoom)
+{
+    if (!qFuzzyCompare(zoom, mZoom)) {
+        mZoom = zoom;
+        updateGL();
+    }
+}

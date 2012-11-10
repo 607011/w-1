@@ -23,6 +23,7 @@ void SensorWidget::resizeEvent(QResizeEvent* e)
 void SensorWidget::paintEvent(QPaintEvent*)
 {
     QPainter p(this);
+    p.fillRect(rect(), QColor(20, 20, 20));
     if (mWindowAspectRatio < mImageAspectRatio) {
         const int h = int(width() / mImageAspectRatio);
         mDestRect = QRect(0, (height()-h)/2, width(), h);
