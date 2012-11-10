@@ -8,10 +8,10 @@
 #include <QImage>
 #include <XnCppWrapper.h>
 
-
 class SensorThread : public QThread
 {
     Q_OBJECT
+
 public:
     explicit SensorThread(QObject* parent = NULL);
     ~SensorThread();
@@ -24,9 +24,6 @@ protected:
 signals:
     void depthFrameReady(const QImage&);
     void videoFrameReady(const QImage&);
-
-public slots:
-    
 
 private:
     bool mPrestart;
@@ -41,7 +38,6 @@ private:
     xn::ImageMetaData mImageMetaData;
 
 private: // methods
-    void regress(const XnDepthPixel* const depthPixels, int size, qreal& A, qreal& B, qreal& C);
 };
 
 #endif // SENSORTHREAD_H

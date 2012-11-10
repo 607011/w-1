@@ -18,9 +18,8 @@ MainWindow::MainWindow(QWidget* parent)
     mSensorWidget = new SensorWidget;
     ui->gridLayout->addWidget(mSensorWidget, 0, 1);
 
-    QObject::connect(&mSensorThread, SIGNAL(depthFrameReady(const QImage&)), mSensorWidget, SLOT(depthFrameReady(const QImage&)));
-    QObject::connect(&mSensorThread, SIGNAL(videoFrameReady(const QImage&)), mSensorWidget, SLOT(videoFrameReady(const QImage&)));
-    QObject::connect(&mSensorThread, SIGNAL(videoFrameReady(const QImage&)), mThreeDWidget, SLOT(videoFrameReady(const QImage&)));
+    QObject::connect(&mSensorThread, SIGNAL(depthFrameReady(const QImage&)), mSensorWidget, SLOT(depthFrameReady(const QImage&)), Qt::BlockingQueuedConnection);
+    QObject::connect(&mSensorThread, SIGNAL(videoFrameReady(const QImage&)), mThreeDWidget, SLOT(videoFrameReady(const QImage&)), Qt::BlockingQueuedConnection);
     mSensorThread.resume();
 }
 

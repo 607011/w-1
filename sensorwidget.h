@@ -6,6 +6,8 @@
 
 #include <QWidget>
 #include <QImage>
+#include <QRectF>
+#include <QResizeEvent>
 
 namespace Ui {
 class SensorWidget;
@@ -16,7 +18,7 @@ class SensorWidget : public QWidget
     Q_OBJECT
     
 public:
-    explicit SensorWidget(QWidget *parent = 0);
+    explicit SensorWidget(QWidget* parent = NULL);
     ~SensorWidget();
     QSize minimumSizeHint(void) const { return QSize(320, 240); }
     QSize sizeHint(void) { return QSize(640, 480); }
@@ -27,12 +29,15 @@ public slots:
 
 protected:
     void paintEvent(QPaintEvent*);
+    void resizeEvent(QResizeEvent*);
 
 private:
     Ui::SensorWidget *ui;
     QImage mDepthFrame;
     QImage mVideoFrame;
-
+    qreal mWindowAspectRatio;
+    qreal mImageAspectRatio;
+    QRectF mDestRect;
 };
 
 #endif // __SENSORWIDGET_H_

@@ -13,14 +13,27 @@
 
 #include "3dwidget.h"
 
-
-const float ThreeDWidget::DefaultZoom = -10.0f;
+const float ThreeDWidget::DefaultZoom = -3.4f;
+const float ThreeDWidget::DefaultXRot = 180.0f;
+const float ThreeDWidget::DefaultYRot = 0.0f;
+const QVector2D ThreeDWidget::mTexCoords[4] = {
+    QVector2D(0, 0),
+    QVector2D(0, 1),
+    QVector2D(1, 0),
+    QVector2D(1, 1)
+};
+const QVector3D ThreeDWidget::mVertices[4] = {
+    QVector3D( 1.6,  1.2, 0),
+    QVector3D( 1.6, -1.2, 0),
+    QVector3D(-1.6,  1.2, 0),
+    QVector3D(-1.6, -1.2, 0)
+};
 
 
 ThreeDWidget::ThreeDWidget(QWidget* parent)
     : QGLWidget(parent)
-    , mXRot(0.0f)
-    , mYRot(0.0f)
+    , mXRot(DefaultXRot)
+    , mYRot(DefaultYRot)
     , mXTrans(0.0f)
     , mYTrans(0.0f)
     , mZTrans(0.0f)
@@ -49,24 +62,8 @@ void ThreeDWidget::videoFrameReady(const QImage& frame)
 }
 
 
-void ThreeDWidget::makeWall(void)
-{
-    mTexCoords.append(QVector2D(0, 0));
-    mTexCoords.append(QVector2D(0, 1));
-    mTexCoords.append(QVector2D(1, 0));
-    mTexCoords.append(QVector2D(1, 1));
-
-    mVertices.append(QVector3D( 1,  1, -5));
-    mVertices.append(QVector3D( 1, -1, -5));
-    mVertices.append(QVector3D(-1,  1, -5));
-    mVertices.append(QVector3D(-1, -1, -5));
-}
-
-
 void ThreeDWidget::initializeGL(void)
 {
-    makeWall();
-
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
 #ifndef QT_OPENGL_ES_2
@@ -114,8 +111,8 @@ void ThreeDWidget::paintGL(void)
     glRotatef(mXRot, 1.0f, 0.0f, 0.0f);
     glRotatef(mYRot, 0.0f, 1.0f, 0.0f);
     glTranslatef(mXTrans, mYTrans, mZTrans);
-    glVertexPointer(3, GL_FLOAT, 0, mVertices.constData());
-    glTexCoordPointer(2, GL_FLOAT, 0, mTexCoords.constData());
+    glVertexPointer(3, GL_FLOAT, 0, mVertices);
+    glTexCoordPointer(2, GL_FLOAT, 0, mTexCoords);
     glEnableClientState(GL_VERTEX_ARRAY);
     glEnableClientState(GL_TEXTURE_COORD_ARRAY);
 #else
@@ -141,13 +138,13 @@ void ThreeDWidget::paintGL(void)
 
 void ThreeDWidget::resizeGL(int width, int height)
 {
-    const int side = qMin(width, height);
-    glViewport((width - side) / 2, (height - side) / 2, side, side);
+    glViewport(0, 0, width, height);
 #if !defined(QT_OPENGL_ES_2)
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
 #ifndef QT_OPENGL_ES
-    glOrtho(-0.5, +0.5, +0.5, -0.5, 4.0, 15.0);
+    gluPerspective(38, (GLdouble)width/(GLdouble)height, 1, 100);
+//    glOrtho(-0.5, +0.5, +0.5, -0.5, 4.0, 15.0);
 #else
     glOrthof(-0.5, +0.5, +0.5, -0.5, 4.0, 15.0);
 #endif
@@ -186,8 +183,8 @@ void ThreeDWidget::keyPressEvent(QKeyEvent* e)
         break;
     case Qt::Key_Escape:
         mZoom = DefaultZoom;
-        mXRot = 0;
-        mYRot = 0;
+        mXRot = DefaultXRot;
+        mYRot = DefaultYRot;
         mXTrans = 0.0;
         mYTrans = 0.0;
         mZTrans = 0.0;
@@ -215,6 +212,7 @@ void ThreeDWidget::mouseReleaseEvent(QMouseEvent*)
 void ThreeDWidget::wheelEvent(QWheelEvent* e)
 {
     mZoom = mZoom + ((e->delta() < 0)? -0.2f : 0.2f);
+    qDebug() << mZoom;
     updateGL();
 }
 

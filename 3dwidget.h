@@ -48,13 +48,14 @@ private: // variables
     float mZoom;
     QPoint mLastPos;
     GLuint mTextureHandle;
-    QVector<QVector3D> mVertices;
-    QVector<QVector2D> mTexCoords;
+    static const QVector3D mVertices[4];
+    static const QVector2D mTexCoords[4];
 #ifdef QT_OPENGL_ES_2
     QGLShaderProgram* mShaderProgram;
 #endif
-    static const int NumHandles = 1;
     static const float DefaultZoom;
+    static const float DefaultXRot;
+    static const float DefaultYRot;
 
 private: // methods
     void makeWall(void);

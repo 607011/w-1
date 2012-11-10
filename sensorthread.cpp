@@ -53,7 +53,7 @@ SensorThread::SensorThread(QObject *parent)
         return;
     }
 
-    mDepthGenerator.GetAlternativeViewPointCap().SetViewPoint(mImageGenerator);
+    // mDepthGenerator.GetAlternativeViewPointCap().SetViewPoint(mImageGenerator);
     mDepthGenerator.GetMetaData(mDepthMetaData);
     mImageGenerator.GetMetaData(mImageMetaData);
 
@@ -86,16 +86,6 @@ void SensorThread::resume(void)
 }
 
 
-void SensorThread::regress(const XnDepthPixel* depthPixels, int size, qreal& A, qreal& B, qreal& C)
-{
-    Q_UNUSED(depthPixels);
-    Q_UNUSED(size);
-    Q_UNUSED(A);
-    Q_UNUSED(B);
-    Q_UNUSED(C);
-}
-
-
 void SensorThread::run(void)
 {
     if (mPrestart) {
@@ -104,11 +94,12 @@ void SensorThread::run(void)
     }
     mContext.StartGeneratingAll();
     while (!mStopped) {
-        XnStatus rc = mContext.WaitAndUpdateAll();
+        XnStatus rc = mContext.WaitOneUpdateAll(mImageGenerator);
         if (rc != XN_STATUS_OK) {
             qDebug() << "Failed updating data:" << xnGetStatusString(rc);
             continue;
         }
+
         const XnDepthPixel* depthPixels = mDepthMetaData.Data();
         const XnDepthPixel* const depthPixelsEnd = depthPixels + (mDepthMetaData.XRes() * mDepthMetaData.YRes());
         QImage depthImage(mDepthMetaData.XRes(), mDepthMetaData.YRes(), QImage::Format_ARGB32);
@@ -131,8 +122,9 @@ void SensorThread::run(void)
             }
             *dst++ = c;
         }
+        emit depthFrameReady(depthImage);
+
         QImage videoImage(mImageMetaData.Data(), mImageMetaData.XRes(), mDepthMetaData.YRes(), QImage::Format_RGB888);
         emit videoFrameReady(videoImage);
-        emit depthFrameReady(depthImage);
     }
 }
