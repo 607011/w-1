@@ -40,9 +40,9 @@ void MainWindow::restoreSettings(void)
 {
     QSettings settings(Company, AppName);
     restoreGeometry(settings.value("MainWindow/geometry").toByteArray());
-    mThreeDWidget->setXRotation(settings.value("Options/xRot", ThreeDWidget::DefaultXRot).toInt());
-    mThreeDWidget->setYRotation(settings.value("Options/yRot", ThreeDWidget::DefaultYRot).toInt());
-    mThreeDWidget->setZoom(settings.value("Options/zoom", ThreeDWidget::DefaultZoom).toFloat());
+//    mThreeDWidget->setXRotation(settings.value("Options/xRot", ThreeDWidget::DefaultXRot).toInt());
+//    mThreeDWidget->setYRotation(settings.value("Options/yRot", ThreeDWidget::DefaultYRot).toInt());
+//    mThreeDWidget->setZoom(settings.value("Options/zoom", ThreeDWidget::DefaultZoom).toFloat());
 }
 
 

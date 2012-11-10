@@ -4,6 +4,8 @@
 #ifndef __3DWIDGET_H_
 #define __3DWIDGET_H_
 
+#define USE_SHADER
+
 #include <QMouseEvent>
 #include <QWheelEvent>
 #include <QKeyEvent>
@@ -12,7 +14,7 @@
 #include <QVector3D>
 #include <QGLWidget>
 #include <gl/GLU.h>
-#ifdef QT_OPENGL_ES_2
+#ifdef USE_SHADER
 #include <QGLShaderProgram>
 #endif
 
@@ -53,7 +55,7 @@ private: // variables
     float mZoom;
     QPoint mLastPos;
     GLuint mTextureHandle;
-#ifdef QT_OPENGL_ES_2
+#ifdef USE_SHADER
     QGLShaderProgram* mShaderProgram;
 #endif
 

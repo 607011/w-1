@@ -1,20 +1,28 @@
 // Copyright (c) 2012 Oliver Lau <oliver@von-und-fuer-lau.de>
 // All rights reserved.
 
+#include "3dwidget.h"
+
 #include <QColor>
 #include <QImage>
 #include <QPixmap>
 #include <QtCore/QDebug>
 #include <QtCore/QTimer>
-#ifdef QT_OPENGL_ES_2
-#include <QGLShader>
-#endif
 #include <qmath.h>
 
-#include "3dwidget.h"
+#ifdef USE_SHADER
+#include <QMatrix4x4>
+#include <QGLShader>
+#endif
 
+
+#ifdef USE_SHADER
+const float ThreeDWidget::DefaultZoom = 38.0f;
+const float ThreeDWidget::DefaultXRot = 0.0f;
+#else
 const float ThreeDWidget::DefaultZoom = -3.4f;
 const float ThreeDWidget::DefaultXRot = 180.0f;
+#endif
 const float ThreeDWidget::DefaultYRot = 0.0f;
 const QVector2D ThreeDWidget::mTexCoords[4] = {
     QVector2D(0, 0),
@@ -39,7 +47,7 @@ ThreeDWidget::ThreeDWidget(QWidget* parent)
     , mZTrans(0.0f)
     , mZoom(DefaultZoom)
     , mTextureHandle(0)
-#ifdef QT_OPENGL_ES_2
+#ifdef USE_SHADER
     , mShaderProgram(NULL)
 #endif
 {
@@ -63,7 +71,7 @@ void ThreeDWidget::initializeGL(void)
 {
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
-#ifndef QT_OPENGL_ES_2
+#ifndef USE_SHADER
     glEnable(GL_TEXTURE_2D);
 #else
 #define PROGRAM_VERTEX_ATTRIBUTE 0
@@ -71,7 +79,7 @@ void ThreeDWidget::initializeGL(void)
     QGLShader* vshader = new QGLShader(QGLShader::Vertex, this);
     vshader->compileSourceFile(":/shaders/vertexshader.vsh");
     QGLShader *fshader = new QGLShader(QGLShader::Fragment, this);
-    fshader->compileSourceFile(":/shaders/fragmentshader.vsh");
+    fshader->compileSourceFile(":/shaders/fragmentshader.fsh");
     mShaderProgram = new QGLShaderProgram(this);
     mShaderProgram->addShader(vshader);
     mShaderProgram->addShader(fshader);
@@ -89,7 +97,7 @@ void ThreeDWidget::paintGL(void)
     qglClearColor(QColor(173, 164, 146));
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-#ifndef QT_OPENGL_ES_2
+#ifndef USE_SHADER
     glLoadIdentity();
     glTranslatef(0.0f, 0.0f, mZoom);
     glRotatef(mXRot, 1.0f, 0.0f, 0.0f);
@@ -101,7 +109,8 @@ void ThreeDWidget::paintGL(void)
     glEnableClientState(GL_TEXTURE_COORD_ARRAY);
 #else
     QMatrix4x4 m;
-    m.ortho(-0.5f, +0.5f, +0.5f, -0.5f, 4.0f, 15.0f);
+    m.perspective(38, qreal(width()) / height(), 1, 100);
+    m.ortho(-0.5f, +0.5f, +0.5f, -0.5f, 1.0f, 15.0f);
     m.translate(0.0f, 0.0f, mZoom);
     m.rotate(mXRot, 1.0f, 0.0f, 0.0f);
     m.rotate(mYRot, 0.0f, 1.0f, 0.0f);
@@ -110,7 +119,7 @@ void ThreeDWidget::paintGL(void)
     mShaderProgram->enableAttributeArray(PROGRAM_VERTEX_ATTRIBUTE);
     mShaderProgram->enableAttributeArray(PROGRAM_TEXCOORD_ATTRIBUTE);
     mShaderProgram->setAttributeArray(PROGRAM_VERTEX_ATTRIBUTE, mVertices);
-    mShaderProgram->setAttributeArray(PROGRAM_TEXCOORD_ATTRIBUTE, mTexCoords));
+    mShaderProgram->setAttributeArray(PROGRAM_TEXCOORD_ATTRIBUTE, mTexCoords);
 #endif
 
     glBindTexture(GL_TEXTURE_2D, mTextureHandle);
@@ -121,7 +130,7 @@ void ThreeDWidget::paintGL(void)
 void ThreeDWidget::resizeGL(int width, int height)
 {
     glViewport(0, 0, width, height);
-#ifndef QT_OPENGL_ES_2
+#ifndef USE_SHADER
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
     gluPerspective(38, (GLdouble)width/(GLdouble)height, 1, 100);
@@ -188,7 +197,11 @@ void ThreeDWidget::mouseReleaseEvent(QMouseEvent*)
 
 void ThreeDWidget::wheelEvent(QWheelEvent* e)
 {
-    mZoom = mZoom + ((e->delta() < 0)? -0.2f : 0.2f);
+#ifdef USE_SHADER
+    setZoom(mZoom + ((e->delta() < 0)? -2.0f : 2.0f));
+#else
+    setZoom(mZoom + ((e->delta() < 0)? -0.2f : 0.2f));
+#endif
     updateGL();
 }
 
@@ -208,6 +221,7 @@ void ThreeDWidget::setXRotation(int angle)
     angle %= 360;
     if (angle != mXRot) {
         mXRot = angle;
+        qDebug() << "mXRot =" << mXRot;
         updateGL();
     }
 }
@@ -218,6 +232,7 @@ void ThreeDWidget::setYRotation(int angle)
     angle %= 360;
     if (angle != mYRot) {
         mYRot = angle;
+        qDebug() << "mYRot =" << mYRot;
         updateGL();
     }
 }
@@ -227,6 +242,7 @@ void ThreeDWidget::setZoom(float zoom)
 {
     if (!qFuzzyCompare(zoom, mZoom)) {
         mZoom = zoom;
+        qDebug() << "mZoom =" << mZoom;
         updateGL();
     }
 }

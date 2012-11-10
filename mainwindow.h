@@ -30,7 +30,6 @@ public:
 protected:
     void closeEvent(QCloseEvent*);
     void timerEvent(QTimerEvent*);
-    void showEvent(QShowEvent*);
 
 private:
     Ui::MainWindow *ui;
