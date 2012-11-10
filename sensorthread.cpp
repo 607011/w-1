@@ -6,12 +6,12 @@
 #include <XnOS.h>
 #include "sensorthread.h"
 
-SensorThread::SensorThread(QObject *parent)
+SensorThread::SensorThread(QObject* parent)
     : QThread(parent)
     , mPrestart(true)
     , mStopped(false)
     , mNearClipping(0)
-    , mFarClipping(0xffff - 0x8000)
+    , mFarClipping(0xffff)
 {
     XnStatus rc = XN_STATUS_OK;
     xn::EnumerationErrors errors;

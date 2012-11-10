@@ -21,8 +21,7 @@ HEADERS += mainwindow.h \
     sensorthread.h \
     sensorwidget.h
 
-FORMS += mainwindow.ui \
-    sensorwidget.ui
+FORMS += mainwindow.ui
 
 RESOURCES += \
     config.qrc \

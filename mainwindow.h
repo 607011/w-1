@@ -5,8 +5,7 @@
 #define __MAINWINDOW_H_
 
 #include <QMainWindow>
-#include <QImage>
-#include <QLabel>
+#include <QCloseEvent>
 #include "sensorthread.h"
 #include "3dwidget.h"
 #include "sensorwidget.h"
@@ -28,7 +27,7 @@ protected:
 
 private:
     Ui::MainWindow *ui;
-    SensorThread mSensorThread;
+    SensorThread* mSensorThread;
     SensorWidget* mSensorWidget;
     ThreeDWidget* mThreeDWidget;
 

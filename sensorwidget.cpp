@@ -7,17 +7,10 @@
 
 SensorWidget::SensorWidget(QWidget* parent)
     : QWidget(parent)
-    , ui(new Ui::SensorWidget)
     , mWindowAspectRatio(640/480)
     , mImageAspectRatio(640/480)
 {
-    ui->setupUi(this);
-}
-
-
-SensorWidget::~SensorWidget()
-{
-    delete ui;
+    /* ... */
 }
 
 
@@ -40,10 +33,6 @@ void SensorWidget::paintEvent(QPaintEvent*)
     }
     if (!mDepthFrame.isNull())
         p.drawImage(mDestRect, mDepthFrame);
-    if (!mVideoFrame.isNull()) {
-        p.setOpacity(0.3);
-        p.drawImage(mDestRect, mVideoFrame);
-    }
     p.setOpacity(0.8);
     p.setPen(Qt::red);
     p.setBrush(Qt::transparent);
@@ -56,12 +45,5 @@ void SensorWidget::depthFrameReady(const QImage& frame)
 {
     mDepthFrame = frame;
     mImageAspectRatio = (qreal)mDepthFrame.width() / mDepthFrame.height();
-    update();
-}
-
-
-void SensorWidget::videoFrameReady(const QImage& frame)
-{
-    mVideoFrame = frame;
     update();
 }

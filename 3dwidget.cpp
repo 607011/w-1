@@ -48,15 +48,11 @@ ThreeDWidget::ThreeDWidget(QWidget* parent)
 }
 
 
-ThreeDWidget::~ThreeDWidget(void)
-{
-    // ...
-}
-
-
 void ThreeDWidget::videoFrameReady(const QImage& frame)
 {
     glBindTexture(GL_TEXTURE_2D, mTextureHandle);
+    if (mTextureHandle)
+        deleteTexture(mTextureHandle);
     mTextureHandle = bindTexture(frame, GL_TEXTURE_2D);
     updateGL();
 }
@@ -68,35 +64,22 @@ void ThreeDWidget::initializeGL(void)
     glEnable(GL_CULL_FACE);
 #ifndef QT_OPENGL_ES_2
     glEnable(GL_TEXTURE_2D);
-#endif
-
-#ifdef QT_OPENGL_ES_2
-
+#else
 #define PROGRAM_VERTEX_ATTRIBUTE 0
 #define PROGRAM_TEXCOORD_ATTRIBUTE 1
-
     QGLShader* vshader = new QGLShader(QGLShader::Vertex, this);
     vshader->compileSourceFile(":/shaders/vertexshader.vsh");
-
     QGLShader *fshader = new QGLShader(QGLShader::Fragment, this);
     fshader->compileSourceFile(":/shaders/fragmentshader.vsh");
-
-    program = new QGLShaderProgram(this);
-    program->addShader(vshader);
-    program->addShader(fshader);
-    program->bindAttributeLocation("vertex", PROGRAM_VERTEX_ATTRIBUTE);
-    program->bindAttributeLocation("texCoord", PROGRAM_TEXCOORD_ATTRIBUTE);
-    program->link();
-
-    program->bind();
-    program->setUniformValue("texture", 0);
-
+    mShaderProgram = new QGLShaderProgram(this);
+    mShaderProgram->addShader(vshader);
+    mShaderProgram->addShader(fshader);
+    mShaderProgram->bindAttributeLocation("vertex", PROGRAM_VERTEX_ATTRIBUTE);
+    mShaderProgram->bindAttributeLocation("texCoord", PROGRAM_TEXCOORD_ATTRIBUTE);
+    mShaderProgram->link();
+    mShaderProgram->bind();
+    mShaderProgram->setUniformValue("texture", 0);
 #endif
-
-    glShadeModel(GL_SMOOTH);
-    glEnable(GL_ALPHA_TEST);
-    glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
-    glHint(GL_POINT_SMOOTH_HINT, GL_NICEST);
 }
 
 
@@ -122,13 +105,11 @@ void ThreeDWidget::paintGL(void)
     m.rotate(mXRot, 1.0f, 0.0f, 0.0f);
     m.rotate(mYRot, 0.0f, 1.0f, 0.0f);
     m.translate(mXTrans, mYTrans, mZTrans);
-    program->setUniformValue("matrix", m);
-    program->enableAttributeArray(PROGRAM_VERTEX_ATTRIBUTE);
-    program->enableAttributeArray(PROGRAM_TEXCOORD_ATTRIBUTE);
-    program->setAttributeArray
-        (PROGRAM_VERTEX_ATTRIBUTE, vertices.constData());
-    program->setAttributeArray
-        (PROGRAM_TEXCOORD_ATTRIBUTE, texCoords.constData());
+    mShaderProgram->setUniformValue("matrix", m);
+    mShaderProgram->enableAttributeArray(PROGRAM_VERTEX_ATTRIBUTE);
+    mShaderProgram->enableAttributeArray(PROGRAM_TEXCOORD_ATTRIBUTE);
+    mShaderProgram->setAttributeArray(PROGRAM_VERTEX_ATTRIBUTE, mVertices);
+    mShaderProgram->setAttributeArray(PROGRAM_TEXCOORD_ATTRIBUTE, mTexCoords));
 #endif
 
     glBindTexture(GL_TEXTURE_2D, mTextureHandle);
@@ -139,15 +120,10 @@ void ThreeDWidget::paintGL(void)
 void ThreeDWidget::resizeGL(int width, int height)
 {
     glViewport(0, 0, width, height);
-#if !defined(QT_OPENGL_ES_2)
+#ifndef QT_OPENGL_ES_2
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-#ifndef QT_OPENGL_ES
     gluPerspective(38, (GLdouble)width/(GLdouble)height, 1, 100);
-//    glOrtho(-0.5, +0.5, +0.5, -0.5, 4.0, 15.0);
-#else
-    glOrthof(-0.5, +0.5, +0.5, -0.5, 4.0, 15.0);
-#endif
     glMatrixMode(GL_MODELVIEW);
 #endif
 }
@@ -212,7 +188,6 @@ void ThreeDWidget::mouseReleaseEvent(QMouseEvent*)
 void ThreeDWidget::wheelEvent(QWheelEvent* e)
 {
     mZoom = mZoom + ((e->delta() < 0)? -0.2f : 0.2f);
-    qDebug() << mZoom;
     updateGL();
 }
 

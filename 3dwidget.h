@@ -4,25 +4,18 @@
 #ifndef __3DWIDGET_H_
 #define __3DWIDGET_H_
 
-#include <QObject>
-#include <QString>
-#include <QSize>
-#include <QPoint>
 #include <QMouseEvent>
 #include <QWheelEvent>
 #include <QKeyEvent>
-#include <QCloseEvent>
-#include <QThread>
-#include <QVector>
+#include <QPoint>
 #include <QVector2D>
 #include <QVector3D>
-#include <QGLShaderProgram>
 #include <QGLWidget>
 #include <gl/GLU.h>
+#ifdef QT_OPENGL_ES_2
+#include <QGLShaderProgram>
+#endif
 
-//#ifndef GL_MULTISAMPLE
-//#define GL_MULTISAMPLE  0x809D
-//#endif
 
 class ThreeDWidget : public QGLWidget
 {
@@ -30,16 +23,19 @@ class ThreeDWidget : public QGLWidget
 
 public: // methods
     explicit ThreeDWidget(QWidget* parent = NULL);
-    ~ThreeDWidget(void);
     QSize minimumSizeHint(void) const { return QSize(320, 240); }
     QSize sizeHint(void) const { return QSize(640, 480); }
-    void setXRotation(int);
-    void setYRotation(int);
 
 public slots:
     void videoFrameReady(const QImage&);
 
 private: // variables
+    static const QVector3D mVertices[4];
+    static const QVector2D mTexCoords[4];
+    static const float DefaultZoom;
+    static const float DefaultXRot;
+    static const float DefaultYRot;
+
     int mXRot;
     int mYRot;
     float mXTrans;
@@ -48,17 +44,9 @@ private: // variables
     float mZoom;
     QPoint mLastPos;
     GLuint mTextureHandle;
-    static const QVector3D mVertices[4];
-    static const QVector2D mTexCoords[4];
 #ifdef QT_OPENGL_ES_2
     QGLShaderProgram* mShaderProgram;
 #endif
-    static const float DefaultZoom;
-    static const float DefaultXRot;
-    static const float DefaultYRot;
-
-private: // methods
-    void makeWall(void);
 
 protected: // methods
     void initializeGL(void);
@@ -69,6 +57,10 @@ protected: // methods
     void mouseMoveEvent(QMouseEvent*);
     void wheelEvent(QWheelEvent*);
     void keyPressEvent(QKeyEvent*);
+
+private: // methods
+    void setXRotation(int);
+    void setYRotation(int);
 
 };
 
