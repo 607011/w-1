@@ -11,7 +11,8 @@
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
-    , mTimerId(0)
+    , mFrameTimerId(0)
+    , mRegressTimerId(0)
 {
     ui->setupUi(this);
     setWindowTitle(tr("%1 %2").arg(AppName).arg(AppVersion));
@@ -21,10 +22,15 @@ MainWindow::MainWindow(QWidget* parent)
     mThreeDWidget = new ThreeDWidget;
     ui->gridLayout->addWidget(mThreeDWidget, 0, 1);
 
-    restoreSettings();
+    mSensorMotor.open();
+//    qDebug() << "mSensorMotor.open() " << (mSensorMotor.isOpen()? "succeeded" : "failed");
 
     initSensor();
     startSensor();
+
+    QObject::connect(ui->tiltSpinBox, SIGNAL(valueChanged(int)), &mSensorMotor, SLOT(setTilt(int)));
+
+    restoreSettings();
 }
 
 
@@ -40,8 +46,11 @@ void MainWindow::restoreSettings(void)
 {
     QSettings settings(Company, AppName);
     restoreGeometry(settings.value("MainWindow/geometry").toByteArray());
-//    mThreeDWidget->setXRotation(settings.value("Options/xRot", ThreeDWidget::DefaultXRot).toInt());
-//    mThreeDWidget->setYRotation(settings.value("Options/yRot", ThreeDWidget::DefaultYRot).toInt());
+    ui->nearClippingHorizontalSlider->setValue(settings.value("Options/nearClipping", 0).toInt());
+    ui->farClippingHorizontalSlider->setValue(settings.value("Options/farClipping", 4096).toInt());
+    ui->tiltSpinBox->setValue(settings.value("Sensor/tilt", 0).toInt());
+//    mThreeDWidget->setXRotation(settings.value("Options/xRot", ThreeDWidget::DefaultXRot).toFloat());
+//    mThreeDWidget->setYRotation(settings.value("Options/yRot", ThreeDWidget::DefaultYRot).toFloat());
 //    mThreeDWidget->setZoom(settings.value("Options/zoom", ThreeDWidget::DefaultZoom).toFloat());
 }
 
@@ -53,8 +62,10 @@ void MainWindow::saveSettings(void)
     settings.setValue("Options/xRot", mThreeDWidget->xRotation());
     settings.setValue("Options/yRot", mThreeDWidget->yRotation());
     settings.setValue("Options/zoom", mThreeDWidget->zoom());
+    settings.setValue("Options/nearClipping", ui->nearClippingHorizontalSlider->value());
+    settings.setValue("Options/farClipping", ui->farClippingHorizontalSlider->value());
+    settings.setValue("Sensor/tilt", ui->tiltSpinBox->value());
 }
-
 
 
 void MainWindow::initSensor(void)
@@ -153,6 +164,7 @@ void MainWindow::timerEvent(QTimerEvent*)
         *dst++ = c;
     }
     mSensorWidget->depthFrameReady(depthImage);
+    regressH();
     QImage videoImage(mImageMetaData.Data(), mImageMetaData.XRes(), mDepthMetaData.YRes(), QImage::Format_RGB888);
     mThreeDWidget->videoFrameReady(videoImage);
 }
@@ -160,9 +172,9 @@ void MainWindow::timerEvent(QTimerEvent*)
 
 void MainWindow::stopSensor(void)
 {
-    if (mTimerId) {
-        killTimer(mTimerId);
-        mTimerId = 0;
+    if (mFrameTimerId) {
+        killTimer(mFrameTimerId);
+        mFrameTimerId = 0;
         mImageGenerator.StopGenerating();
         mDepthGenerator.StopGenerating();
     }
@@ -171,8 +183,49 @@ void MainWindow::stopSensor(void)
 
 void MainWindow::startSensor(void)
 {
-    if (mTimerId == 0) {
+    if (mFrameTimerId == 0) {
         mContext.StartGeneratingAll();
-        mTimerId = startTimer(1000 / mImageMetaData.FPS());
+        mFrameTimerId = startTimer(1000 / mImageMetaData.FPS());
     }
 }
+
+
+void MainWindow::regressH(void)
+{
+    const int nearThreshold = ui->nearClippingHorizontalSlider->value();
+    const int farThreshold = ui->farClippingHorizontalSlider->value();
+    const XnDepthPixel* const midLine = mDepthMetaData.Data() + mDepthMetaData.XRes() * mDepthMetaData.YRes() / 2;
+    qreal sumZ = 0, sumX = 0;
+    int n = 0;
+    const XnDepthPixel* pZ;
+    pZ = midLine;
+    for (XnUInt32 x = 0; x < mDepthMetaData.XRes(); ++x) {
+        int z = int(*pZ++);
+        if (z > nearThreshold && z < farThreshold) {
+            sumZ += z;
+            sumX += x;
+            ++n;
+        }
+    }
+    qreal z_ = sumZ / n;
+    ui->z_LineEdit->setText(QString("%1").arg(z_));
+    qreal x_ = sumX / n;
+    ui->x_LineEdit->setText(QString("%1").arg(x_));
+    pZ = midLine;
+    qreal sumZ2 = 0, sumZX = 0;
+    for (XnUInt32 x = 0; x < mDepthMetaData.XRes(); ++x) {
+        int z = int(*pZ++);
+        if (z > nearThreshold && z < farThreshold) {
+            qreal zd = z - z_;
+            qreal xd = x - x_;
+            sumZX += zd * xd;
+            sumZ2 += zd * zd;
+        }
+    }
+    hB = sumZX / sumZ2;
+    hA = x_ - hB * z_;
+    ui->aLineEdit->setText(QString("%1").arg(hA));
+    ui->bLineEdit->setText(QString("%1").arg(hB));
+}
+
+

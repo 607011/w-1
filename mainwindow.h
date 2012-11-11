@@ -14,6 +14,7 @@
 
 #include "3dwidget.h"
 #include "sensorwidget.h"
+#include "sensormotor.h"
 
 namespace Ui {
 class MainWindow;
@@ -35,18 +36,23 @@ private:
     Ui::MainWindow *ui;
     SensorWidget* mSensorWidget;
     ThreeDWidget* mThreeDWidget;
-    int mTimerId;
+    SensorMotor mSensorMotor;
+    int mFrameTimerId;
+    int mRegressTimerId;
     xn::ScriptNode mScriptNode;
     xn::Context mContext;
     xn::DepthGenerator mDepthGenerator;
     xn::ImageGenerator mImageGenerator;
     xn::DepthMetaData mDepthMetaData;
     xn::ImageMetaData mImageMetaData;
+    qreal hA;
+    qreal hB;
 
 private: // methods
     void initSensor(void);
     void startSensor(void);
     void stopSensor(void);
+    void regressH(void);
 
     void saveSettings(void);
     void restoreSettings(void);

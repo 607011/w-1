@@ -34,7 +34,7 @@ void SensorWidget::paintEvent(QPaintEvent*)
     }
     if (!mDepthFrame.isNull())
         p.drawImage(mDestRect, mDepthFrame);
-    p.setOpacity(0.8);
+    p.setOpacity(0.6);
     p.setPen(Qt::red);
     p.setBrush(Qt::transparent);
     p.drawLine(0, height()/2, width(), height()/2);

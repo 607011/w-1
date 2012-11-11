@@ -28,17 +28,20 @@ public: // methods
     QSize minimumSizeHint(void) const { return QSize(320, 240); }
     QSize sizeHint(void) const { return QSize(640, 480); }
 
-    void setXRotation(int);
-    void setYRotation(int);
+    void setXRotation(float);
+    void setYRotation(float);
+    void setTranslation(float x, float y);
     void setZoom(float);
 
-    int xRotation(void) const { return mXRot; }
-    int yRotation(void) const { return mYRot; }
+    float xRotation(void) const { return mXRot; }
+    float yRotation(void) const { return mYRot; }
+    float zRotation(void) const { return mZRot; }
     float zoom(void) const { return mZoom; }
 
     static const float DefaultZoom;
     static const float DefaultXRot;
     static const float DefaultYRot;
+    static const float DefaultZRot;
 
 public slots:
     void videoFrameReady(const QImage&);
@@ -47,8 +50,9 @@ private: // variables
     static const QVector3D mVertices[4];
     static const QVector2D mTexCoords[4];
 
-    int mXRot;
-    int mYRot;
+    float mXRot;
+    float mYRot;
+    float mZRot;
     float mXTrans;
     float mYTrans;
     float mZTrans;

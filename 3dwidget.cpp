@@ -16,14 +16,10 @@
 #endif
 
 
-#ifdef USE_SHADER
-const float ThreeDWidget::DefaultZoom = 38.0f;
-const float ThreeDWidget::DefaultXRot = 0.0f;
-#else
 const float ThreeDWidget::DefaultZoom = -3.4f;
 const float ThreeDWidget::DefaultXRot = 180.0f;
-#endif
 const float ThreeDWidget::DefaultYRot = 0.0f;
+const float ThreeDWidget::DefaultZRot = 0.0f;
 const QVector2D ThreeDWidget::mTexCoords[4] = {
     QVector2D(0, 0),
     QVector2D(0, 1),
@@ -42,6 +38,7 @@ ThreeDWidget::ThreeDWidget(QWidget* parent)
     : QGLWidget(parent)
     , mXRot(DefaultXRot)
     , mYRot(DefaultYRot)
+    , mZRot(DefaultZRot)
     , mXTrans(0.0f)
     , mYTrans(0.0f)
     , mZTrans(0.0f)
@@ -53,6 +50,7 @@ ThreeDWidget::ThreeDWidget(QWidget* parent)
 {
     setFocus(Qt::OtherFocusReason);
     setCursor(Qt::OpenHandCursor);
+    grabKeyboard();
     setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding);
 }
 
@@ -110,10 +108,10 @@ void ThreeDWidget::paintGL(void)
 #else
     QMatrix4x4 m;
     m.perspective(38, qreal(width()) / height(), 1, 100);
-    m.ortho(-0.5f, +0.5f, +0.5f, -0.5f, 1.0f, 15.0f);
     m.translate(0.0f, 0.0f, mZoom);
     m.rotate(mXRot, 1.0f, 0.0f, 0.0f);
     m.rotate(mYRot, 0.0f, 1.0f, 0.0f);
+    m.rotate(mZRot, 0.0f, 0.0f, 1.0f);
     m.translate(mXTrans, mYTrans, mZTrans);
     mShaderProgram->setUniformValue("matrix", m);
     mShaderProgram->enableAttributeArray(PROGRAM_VERTEX_ATTRIBUTE);
@@ -141,22 +139,14 @@ void ThreeDWidget::resizeGL(int width, int height)
 
 void ThreeDWidget::keyPressEvent(QKeyEvent* e)
 {
-    const double incrTrans = ((e->modifiers() & Qt::ShiftModifier) == Qt::ShiftModifier)? 1 : 10;
+    const float incrTrans = (e->modifiers() & Qt::ShiftModifier)? 0.2f : 1.0f;
     switch(e->key()) {
     case Qt::Key_Left:
-        mXTrans -= incrTrans;
+        mZRot -= incrTrans;
         updateGL();
         break;
     case Qt::Key_Right:
-        mXTrans += incrTrans;
-        updateGL();
-        break;
-    case Qt::Key_Down:
-        mYTrans -= incrTrans;
-        updateGL();
-        break;
-    case Qt::Key_Up:
-        mYTrans += incrTrans;
+        mZRot += incrTrans;
         updateGL();
         break;
     case Qt::Key_PageDown:
@@ -171,6 +161,7 @@ void ThreeDWidget::keyPressEvent(QKeyEvent* e)
         mZoom = DefaultZoom;
         mXRot = DefaultXRot;
         mYRot = DefaultYRot;
+        mZRot = DefaultYRot;
         mXTrans = 0.0;
         mYTrans = 0.0;
         mZTrans = 0.0;
@@ -197,41 +188,46 @@ void ThreeDWidget::mouseReleaseEvent(QMouseEvent*)
 
 void ThreeDWidget::wheelEvent(QWheelEvent* e)
 {
-#ifdef USE_SHADER
-    setZoom(mZoom + ((e->delta() < 0)? -2.0f : 2.0f));
-#else
     setZoom(mZoom + ((e->delta() < 0)? -0.2f : 0.2f));
-#endif
     updateGL();
 }
 
 
 void ThreeDWidget::mouseMoveEvent(QMouseEvent* e)
 {
-    if ((e->buttons() & Qt::LeftButton) == Qt::LeftButton) {
-        setXRotation(mXRot + (e->y() - mLastPos.y()) / 2);
-        setYRotation(mYRot + (e->x() - mLastPos.x()) / 2);
+    if (e->buttons() & Qt::LeftButton) {
+        setXRotation(mXRot + 0.333f * (e->y() - mLastPos.y()));
+        setYRotation(mYRot + 0.333f * (e->x() - mLastPos.x()));
+    }
+    else if (e->buttons() & Qt::RightButton) {
+        setTranslation(mXTrans + 0.01f * (e->x() - mLastPos.x()), mYTrans + 0.01f * (e->y() - mLastPos.y()));
     }
     mLastPos = e->pos();
 }
 
 
-void ThreeDWidget::setXRotation(int angle)
+void ThreeDWidget::setTranslation(float x, float y)
 {
-    angle %= 360;
-    if (angle != mXRot) {
-        mXRot = angle;
+    mXTrans = x;
+    mYTrans = y;
+    updateGL();
+}
+
+
+void ThreeDWidget::setXRotation(float degrees)
+{
+    if (degrees != mXRot) {
+        mXRot = degrees;
         qDebug() << "mXRot =" << mXRot;
         updateGL();
     }
 }
 
 
-void ThreeDWidget::setYRotation(int angle)
+void ThreeDWidget::setYRotation(float degrees)
 {
-    angle %= 360;
-    if (angle != mYRot) {
-        mYRot = angle;
+    if (degrees != mYRot) {
+        mYRot = degrees;
         qDebug() << "mYRot =" << mYRot;
         updateGL();
     }

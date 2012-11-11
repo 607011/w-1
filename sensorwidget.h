@@ -31,6 +31,7 @@ private:
     qreal mWindowAspectRatio;
     qreal mImageAspectRatio;
     QRectF mDestRect;
+
 };
 
 #endif // __SENSORWIDGET_H_
