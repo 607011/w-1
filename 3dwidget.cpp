@@ -67,6 +67,7 @@ void ThreeDWidget::videoFrameReady(const QImage& frame)
 
 void ThreeDWidget::initializeGL(void)
 {
+
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
 #ifndef USE_SHADER
