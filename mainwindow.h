@@ -8,6 +8,7 @@
 #include <QCloseEvent>
 #include <QShowEvent>
 #include <QTimerEvent>
+#include <QTime>
 #include <QImage>
 
 #include <XnCppWrapper.h>
@@ -42,11 +43,15 @@ private:
     xn::ScriptNode mScriptNode;
     xn::Context mContext;
     xn::DepthGenerator mDepthGenerator;
-    xn::ImageGenerator mImageGenerator;
+    xn::ImageGenerator mVideoGenerator;
     xn::DepthMetaData mDepthMetaData;
-    xn::ImageMetaData mImageMetaData;
+    xn::ImageMetaData mVideoMetaData;
     qreal hA;
     qreal hB;
+    QTime mT0;
+    int mFrameCount;
+    QImage mVideoImage;
+    QImage mDepthImage;
 
 private: // methods
     void initSensor(void);

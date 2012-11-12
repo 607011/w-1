@@ -1,3 +1,6 @@
+// Copyright (c) 2012 Oliver Lau <oliver@von-und-fuer-lau.de>
+// All rights reserved.
+
 attribute highp vec4 vertex;
 attribute mediump vec4 texCoord;
 varying mediump vec4 texc;

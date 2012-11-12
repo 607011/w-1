@@ -20,19 +20,32 @@ const float ThreeDWidget::DefaultZoom = -3.4f;
 const float ThreeDWidget::DefaultXRot = 180.0f;
 const float ThreeDWidget::DefaultYRot = 0.0f;
 const float ThreeDWidget::DefaultZRot = 0.0f;
+
+const QVector2D ThreeDWidget::mOffset[9] = {
+    QVector2D(1,  1), QVector2D(0 , 1), QVector2D(-1,  1),
+    QVector2D(1,  0), QVector2D(0,  0), QVector2D(-1,  0),
+    QVector2D(1, -1), QVector2D(0, -1), QVector2D(-1, -1)
+};
+
+GLfloat ThreeDWidget::mSharpeningKernel[9] = {
+    0.0f, -0.5f,  0.0f,
+    -0.5f,  3.0f, -0.5f,
+    0.0f, -0.5f,  0.0f
+};
+
 const QVector2D ThreeDWidget::mTexCoords[4] = {
     QVector2D(0, 0),
     QVector2D(0, 1),
     QVector2D(1, 0),
     QVector2D(1, 1)
 };
+
 const QVector3D ThreeDWidget::mVertices[4] = {
     QVector3D( 1.6,  1.2, 0),
     QVector3D( 1.6, -1.2, 0),
     QVector3D(-1.6,  1.2, 0),
     QVector3D(-1.6, -1.2, 0)
 };
-
 
 ThreeDWidget::ThreeDWidget(QWidget* parent)
     : QGLWidget(parent)
@@ -44,23 +57,40 @@ ThreeDWidget::ThreeDWidget(QWidget* parent)
     , mZTrans(0)
     , mZoom(DefaultZoom)
     , mTextureHandle(0)
-#ifdef USE_SHADER
+    #ifdef USE_SHADER
     , mShaderProgram(NULL)
-#endif
+    #endif
 {
     setFocus(Qt::OtherFocusReason);
     setCursor(Qt::OpenHandCursor);
-//    grabKeyboard();
+    grabKeyboard();
     setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding);
 }
 
 
 void ThreeDWidget::videoFrameReady(const QImage& frame)
 {
+    if (frame.isNull())
+        return;
     if (mTextureHandle)
         deleteTexture(mTextureHandle);
-    mTextureHandle = bindTexture(frame, GL_TEXTURE_2D);
+    mFrameSize.setX(frame.width());
+    mFrameSize.setY(frame.height());
+    // mTextureHandle = bindTexture(frame, GL_TEXTURE_2D, GL_RGBA);
+
     glBindTexture(GL_TEXTURE_2D, mTextureHandle);
+    glTexParameteri(mTextureHandle, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(mTextureHandle, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(mTextureHandle, GL_TEXTURE_WRAP_S,     GL_CLAMP);
+    glTexParameteri(mTextureHandle, GL_TEXTURE_WRAP_T,     GL_CLAMP);
+    glTexImage2D(mTextureHandle, 1, GL_RGBA, frame.width(), frame.height(), 0, GL_RGBA, GL_UNSIGNED_BYTE, frame.bits());
+    updateGL();
+}
+
+
+void ThreeDWidget::setGamma(double gradient)
+{
+    mGamma = (GLfloat)gradient;
     updateGL();
 }
 
@@ -76,9 +106,9 @@ void ThreeDWidget::initializeGL(void)
 #define PROGRAM_VERTEX_ATTRIBUTE 0
 #define PROGRAM_TEXCOORD_ATTRIBUTE 1
     QGLShader* vshader = new QGLShader(QGLShader::Vertex, this);
-    vshader->compileSourceFile(":/shaders/vertexshader.vsh");
+    vshader->compileSourceFile(":/shaders/vertexshader.glsl");
     QGLShader *fshader = new QGLShader(QGLShader::Fragment, this);
-    fshader->compileSourceFile(":/shaders/fragmentshader.fsh");
+    fshader->compileSourceFile(":/shaders/fragmentshader.glsl");
     mShaderProgram = new QGLShaderProgram(this);
     mShaderProgram->addShader(vshader);
     mShaderProgram->addShader(fshader);
@@ -87,6 +117,7 @@ void ThreeDWidget::initializeGL(void)
     mShaderProgram->link();
     mShaderProgram->bind();
     mShaderProgram->setUniformValue("texture", 0);
+    mShaderProgram->setUniformValueArray("offset", mOffset, 9);
 #endif
 }
 
@@ -115,14 +146,17 @@ void ThreeDWidget::paintGL(void)
     m.rotate(mYRot, 0.0f, 1.0f, 0.0f);
     m.rotate(mZRot, 0.0f, 0.0f, 1.0f);
     m.translate(mXTrans, mYTrans, mZTrans);
+    mShaderProgram->setUniformValue("gamma", mGamma);
     mShaderProgram->setUniformValue("matrix", m);
+    mShaderProgram->setUniformValue("size", mFrameSize);
+    mShaderProgram->setUniformValueArray("sharpen", mSharpeningKernel, 9, 1);
     mShaderProgram->enableAttributeArray(PROGRAM_VERTEX_ATTRIBUTE);
     mShaderProgram->enableAttributeArray(PROGRAM_TEXCOORD_ATTRIBUTE);
     mShaderProgram->setAttributeArray(PROGRAM_VERTEX_ATTRIBUTE, mVertices);
     mShaderProgram->setAttributeArray(PROGRAM_TEXCOORD_ATTRIBUTE, mTexCoords);
 #endif
 
-    glBindTexture(GL_TEXTURE_2D, mTextureHandle);
+    //glBindTexture(GL_TEXTURE_2D, mTextureHandle);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 }
 
@@ -171,8 +205,10 @@ void ThreeDWidget::keyPressEvent(QKeyEvent* e)
         updateGL();
         break;
     default:
-        break;
+        e->ignore();
+        return;
     }
+    e->accept();
 }
 
 
@@ -261,4 +297,16 @@ void ThreeDWidget::setZoom(float zoom)
         mZoom = zoom;
         updateGL();
     }
+}
+
+
+void ThreeDWidget::setSharpening(int percent)
+{
+    const GLfloat intensity = -3.0f * GLfloat(percent) / 100.0f;
+    mSharpeningKernel[1] = intensity;
+    mSharpeningKernel[3] = intensity;
+    mSharpeningKernel[4] = 1.0f + -4.0f * intensity;
+    mSharpeningKernel[5] = intensity;
+    mSharpeningKernel[7] = intensity;
+    updateGL();
 }

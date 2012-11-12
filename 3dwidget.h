@@ -40,30 +40,36 @@ public: // methods
     float zRotation(void) const { return mZRot; }
     float zoom(void) const { return mZoom; }
 
-    static const float DefaultZoom;
-    static const float DefaultXRot;
-    static const float DefaultYRot;
-    static const float DefaultZRot;
+    static const GLfloat DefaultZoom;
+    static const GLfloat DefaultXRot;
+    static const GLfloat DefaultYRot;
+    static const GLfloat DefaultZRot;
 
 public slots:
     void videoFrameReady(const QImage&);
+    void setGamma(double);
+    void setSharpening(int percent);
 
 private: // variables
     static const QVector3D mVertices[4];
     static const QVector2D mTexCoords[4];
+    static const QVector2D mOffset[9];
+    static GLfloat mSharpeningKernel[9];
 
-    float mXRot;
-    float mYRot;
-    float mZRot;
-    float mXTrans;
-    float mYTrans;
-    float mZTrans;
-    float mZoom;
+    GLfloat mXRot;
+    GLfloat mYRot;
+    GLfloat mZRot;
+    GLfloat mXTrans;
+    GLfloat mYTrans;
+    GLfloat mZTrans;
+    GLfloat mZoom;
     QPoint mLastPos;
     GLuint mTextureHandle;
 #ifdef USE_SHADER
     QGLShaderProgram* mShaderProgram;
 #endif
+    GLfloat mGamma;
+    QVector2D mFrameSize;
 
 protected: // methods
     void initializeGL(void);

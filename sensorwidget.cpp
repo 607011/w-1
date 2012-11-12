@@ -15,7 +15,7 @@ SensorWidget::SensorWidget(QWidget* parent)
 
 void SensorWidget::resizeEvent(QResizeEvent* e)
 {
-    mWindowAspectRatio = (qreal) e->size().width() / e->size().height();
+    mWindowAspectRatio = (qreal)e->size().width() / e->size().height();
 }
 
 

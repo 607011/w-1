@@ -36,6 +36,6 @@ RESOURCES += \
 
 OTHER_FILES += \
     config/sample.xml \
-    shaders/fragmentshader.fsh \
-    shaders/vertexshader.vsh \
-    README.md
+    README.md \
+    shaders/fragmentshader.glsl \
+    shaders/vertexshader.glsl
