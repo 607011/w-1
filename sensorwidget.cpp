@@ -3,7 +3,6 @@
 
 #include <QPainter>
 #include "sensorwidget.h"
-#include "ui_sensorwidget.h"
 
 SensorWidget::SensorWidget(QWidget* parent)
     : QWidget(parent)

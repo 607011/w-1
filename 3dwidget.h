@@ -30,7 +30,9 @@ public: // methods
 
     void setXRotation(float);
     void setYRotation(float);
-    void setTranslation(float x, float y);
+    void setZRotation(float);
+    void setXTranslation(float);
+    void setYTranslation(float);
     void setZoom(float);
 
     float xRotation(void) const { return mXRot; }

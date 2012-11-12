@@ -7,8 +7,14 @@ greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
 TARGET = W-1
 TEMPLATE = app
+win32 {
+INCLUDEPATH += "C:/Program Files/OpenNI/Include"
+LIBS += "C:/Program Files/OpenNI/Lib/openNI.lib"
+}
+win64 {
 INCLUDEPATH += "C:/Program Files (x86)/OpenNI/Include"
 LIBS += "C:/Program Files (x86)/OpenNI/Lib/openNI.lib"
+}
 
 SOURCES += main.cpp \
     mainwindow.cpp \

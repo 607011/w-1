@@ -46,8 +46,8 @@ void MainWindow::restoreSettings(void)
 {
     QSettings settings(Company, AppName);
     restoreGeometry(settings.value("MainWindow/geometry").toByteArray());
-    ui->nearClippingHorizontalSlider->setValue(settings.value("Options/nearClipping", 0).toInt());
-    ui->farClippingHorizontalSlider->setValue(settings.value("Options/farClipping", 4096).toInt());
+    ui->nearClippingSpinBox->setValue(settings.value("Options/nearClipping", 0).toInt());
+    ui->farClippingSpinBox->setValue(settings.value("Options/farClipping", 4096).toInt());
     ui->tiltSpinBox->setValue(settings.value("Sensor/tilt", 0).toInt());
 //    mThreeDWidget->setXRotation(settings.value("Options/xRot", ThreeDWidget::DefaultXRot).toFloat());
 //    mThreeDWidget->setYRotation(settings.value("Options/yRot", ThreeDWidget::DefaultYRot).toFloat());
@@ -62,8 +62,8 @@ void MainWindow::saveSettings(void)
     settings.setValue("Options/xRot", mThreeDWidget->xRotation());
     settings.setValue("Options/yRot", mThreeDWidget->yRotation());
     settings.setValue("Options/zoom", mThreeDWidget->zoom());
-    settings.setValue("Options/nearClipping", ui->nearClippingHorizontalSlider->value());
-    settings.setValue("Options/farClipping", ui->farClippingHorizontalSlider->value());
+    settings.setValue("Options/nearClipping", ui->nearClippingSpinBox->value());
+    settings.setValue("Options/farClipping", ui->farClippingSpinBox->value());
     settings.setValue("Sensor/tilt", ui->tiltSpinBox->value());
 }
 
@@ -140,8 +140,8 @@ void MainWindow::timerEvent(QTimerEvent*)
     }
     QImage depthImage(mDepthMetaData.XRes(), mDepthMetaData.YRes(), QImage::Format_ARGB32);
     QRgb* dst = reinterpret_cast<QRgb*>(depthImage.bits());
-    const int nearThreshold = ui->nearClippingHorizontalSlider->value();
-    const int farThreshold = ui->farClippingHorizontalSlider->value();
+    const int nearThreshold = ui->nearClippingSpinBox->value();
+    const int farThreshold = ui->farClippingSpinBox->value();
     const int clipDelta = farThreshold - nearThreshold;
     const XnDepthPixel* depthPixels = mDepthMetaData.Data();
     const XnDepthPixel* const depthPixelsEnd = depthPixels + (mDepthMetaData.XRes() * mDepthMetaData.YRes());
@@ -192,8 +192,8 @@ void MainWindow::startSensor(void)
 
 void MainWindow::regressH(void)
 {
-    const int nearThreshold = ui->nearClippingHorizontalSlider->value();
-    const int farThreshold = ui->farClippingHorizontalSlider->value();
+    const int nearThreshold = ui->nearClippingSpinBox->value();
+    const int farThreshold = ui->farClippingSpinBox->value();
     const XnDepthPixel* const midLine = mDepthMetaData.Data() + mDepthMetaData.XRes() * mDepthMetaData.YRes() / 2;
     qreal sumZ = 0, sumX = 0;
     int n = 0;
@@ -208,7 +208,7 @@ void MainWindow::regressH(void)
         }
     }
     qreal z_ = sumZ / n;
-    ui->z_LineEdit->setText(QString("%1").arg(z_));
+    ui->z_LineEdit->setText(QString("%1 mm").arg(z_));
     qreal x_ = sumX / n;
     ui->x_LineEdit->setText(QString("%1").arg(x_));
     pZ = midLine;
@@ -226,6 +226,7 @@ void MainWindow::regressH(void)
     hA = x_ - hB * z_;
     ui->aLineEdit->setText(QString("%1").arg(hA));
     ui->bLineEdit->setText(QString("%1").arg(hB));
+    ui->zCenterLineEdit->setText(QString("%1 mm").arg((int)midLine[mDepthMetaData.XRes() / 2]));
 }
 
 

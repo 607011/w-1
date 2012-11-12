@@ -39,9 +39,9 @@ ThreeDWidget::ThreeDWidget(QWidget* parent)
     , mXRot(DefaultXRot)
     , mYRot(DefaultYRot)
     , mZRot(DefaultZRot)
-    , mXTrans(0.0f)
-    , mYTrans(0.0f)
-    , mZTrans(0.0f)
+    , mXTrans(0)
+    , mYTrans(0)
+    , mZTrans(0)
     , mZoom(DefaultZoom)
     , mTextureHandle(0)
 #ifdef USE_SHADER
@@ -50,25 +50,26 @@ ThreeDWidget::ThreeDWidget(QWidget* parent)
 {
     setFocus(Qt::OtherFocusReason);
     setCursor(Qt::OpenHandCursor);
-    grabKeyboard();
+//    grabKeyboard();
     setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding);
 }
 
 
 void ThreeDWidget::videoFrameReady(const QImage& frame)
 {
-    glBindTexture(GL_TEXTURE_2D, mTextureHandle);
     if (mTextureHandle)
         deleteTexture(mTextureHandle);
     mTextureHandle = bindTexture(frame, GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, mTextureHandle);
     updateGL();
 }
 
 
 void ThreeDWidget::initializeGL(void)
 {
-    glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
+    glEnable(GL_DEPTH_TEST);
+    glEnable(GL_ALPHA_TEST);
 #ifndef USE_SHADER
     glEnable(GL_TEXTURE_2D);
 #else
@@ -100,6 +101,7 @@ void ThreeDWidget::paintGL(void)
     glTranslatef(0.0f, 0.0f, mZoom);
     glRotatef(mXRot, 1.0f, 0.0f, 0.0f);
     glRotatef(mYRot, 0.0f, 1.0f, 0.0f);
+    glRotatef(mZRot, 0.0f, 0.0f, 1.0f);
     glTranslatef(mXTrans, mYTrans, mZTrans);
     glVertexPointer(3, GL_FLOAT, 0, mVertices);
     glTexCoordPointer(2, GL_FLOAT, 0, mTexCoords);
@@ -107,7 +109,7 @@ void ThreeDWidget::paintGL(void)
     glEnableClientState(GL_TEXTURE_COORD_ARRAY);
 #else
     QMatrix4x4 m;
-    m.perspective(38, qreal(width()) / height(), 1, 100);
+    m.perspective(38.0, qreal(width()) / height(), 0.48, 12.0);
     m.translate(0.0f, 0.0f, mZoom);
     m.rotate(mXRot, 1.0f, 0.0f, 0.0f);
     m.rotate(mYRot, 0.0f, 1.0f, 0.0f);
@@ -131,7 +133,7 @@ void ThreeDWidget::resizeGL(int width, int height)
 #ifndef USE_SHADER
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    gluPerspective(38, (GLdouble)width/(GLdouble)height, 1, 100);
+    gluPerspective(38.0, (GLdouble)width/(GLdouble)height, 0.48, 12.0);
     glMatrixMode(GL_MODELVIEW);
 #endif
 }
@@ -139,22 +141,23 @@ void ThreeDWidget::resizeGL(int width, int height)
 
 void ThreeDWidget::keyPressEvent(QKeyEvent* e)
 {
-    const float incrTrans = (e->modifiers() & Qt::ShiftModifier)? 0.2f : 1.0f;
+    const float dTrans = (e->modifiers() & Qt::ShiftModifier)? 0.05f : 0.5f;
+    const float dRot = (e->modifiers() & Qt::ShiftModifier)? 0.1f : 1.0f;
     switch(e->key()) {
     case Qt::Key_Left:
-        mZRot -= incrTrans;
+        mZRot -= dRot;
         updateGL();
         break;
     case Qt::Key_Right:
-        mZRot += incrTrans;
+        mZRot += dRot;
         updateGL();
         break;
-    case Qt::Key_PageDown:
-        mZTrans -= incrTrans;
+    case Qt::Key_Down:
+        mZTrans -= dTrans;
         updateGL();
         break;
-    case Qt::Key_PageUp:
-        mZTrans += incrTrans;
+    case Qt::Key_Up:
+        mZTrans += dTrans;
         updateGL();
         break;
     case Qt::Key_Escape:
@@ -162,9 +165,9 @@ void ThreeDWidget::keyPressEvent(QKeyEvent* e)
         mXRot = DefaultXRot;
         mYRot = DefaultYRot;
         mZRot = DefaultYRot;
-        mXTrans = 0.0;
-        mYTrans = 0.0;
-        mZTrans = 0.0;
+        mXTrans = 0;
+        mYTrans = 0;
+        mZTrans = 0;
         updateGL();
         break;
     default:
@@ -200,25 +203,35 @@ void ThreeDWidget::mouseMoveEvent(QMouseEvent* e)
         setYRotation(mYRot + 0.333f * (e->x() - mLastPos.x()));
     }
     else if (e->buttons() & Qt::RightButton) {
-        setTranslation(mXTrans + 0.01f * (e->x() - mLastPos.x()), mYTrans + 0.01f * (e->y() - mLastPos.y()));
+        setXTranslation(mXTrans + 0.01f * (e->x() - mLastPos.x()));
+        setYTranslation(mYTrans + 0.01f * (e->y() - mLastPos.y()));
     }
     mLastPos = e->pos();
 }
 
 
-void ThreeDWidget::setTranslation(float x, float y)
+void ThreeDWidget::setXTranslation(float x)
 {
-    mXTrans = x;
-    mYTrans = y;
-    updateGL();
+    if (!qFuzzyCompare(mXTrans, x)) {
+        mXTrans = x;
+        updateGL();
+    }
+}
+
+
+void ThreeDWidget::setYTranslation(float y)
+{
+    if (!qFuzzyCompare(mYTrans, y)) {
+        mYTrans = y;
+        updateGL();
+    }
 }
 
 
 void ThreeDWidget::setXRotation(float degrees)
 {
-    if (degrees != mXRot) {
+    if (!qFuzzyCompare(degrees, mXRot)) {
         mXRot = degrees;
-        qDebug() << "mXRot =" << mXRot;
         updateGL();
     }
 }
@@ -226,9 +239,17 @@ void ThreeDWidget::setXRotation(float degrees)
 
 void ThreeDWidget::setYRotation(float degrees)
 {
-    if (degrees != mYRot) {
+    if (!qFuzzyCompare(degrees, mYRot)) {
         mYRot = degrees;
-        qDebug() << "mYRot =" << mYRot;
+        updateGL();
+    }
+}
+
+
+void ThreeDWidget::setZRotation(float degrees)
+{
+    if (!qFuzzyCompare(degrees, mZRot)) {
+        mYRot = degrees;
         updateGL();
     }
 }
@@ -238,7 +259,6 @@ void ThreeDWidget::setZoom(float zoom)
 {
     if (!qFuzzyCompare(zoom, mZoom)) {
         mZoom = zoom;
-        qDebug() << "mZoom =" << mZoom;
         updateGL();
     }
 }
