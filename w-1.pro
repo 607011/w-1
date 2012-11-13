@@ -9,7 +9,7 @@ TARGET = W-1
 TEMPLATE = app
 INCLUDEPATH += "$(OPEN_NI_INCLUDE)" \
     "dep/glew-1.9.0/include"
-LIBS += "$(OPEN_NI_INSTALL_PATH)/Lib/openNI.lib"  \
+LIBS += "C:/Programme/OpenNI/Lib/openNI.lib"  \
     "../w-1/dep/glew-1.9.0/lib/glew32.lib"
 
 SOURCES += main.cpp \

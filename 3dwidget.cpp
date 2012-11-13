@@ -6,8 +6,8 @@
 #include <QColor>
 #include <QImage>
 #include <QPixmap>
+#include <QTimer>
 #include <QtCore/QDebug>
-#include <QtCore/QTimer>
 #include <qmath.h>
 
 #ifdef USE_SHADER
@@ -16,10 +16,11 @@
 #endif
 
 
-const float ThreeDWidget::DefaultZoom = -3.4f;
+const float ThreeDWidget::DefaultZoom = -2.0f;
 const float ThreeDWidget::DefaultXRot = 180.0f;
 const float ThreeDWidget::DefaultYRot = 0.0f;
 const float ThreeDWidget::DefaultZRot = 0.0f;
+
 
 const QVector2D ThreeDWidget::mOffset[9] = {
     QVector2D(1,  1), QVector2D(0 , 1), QVector2D(-1,  1),
@@ -27,11 +28,13 @@ const QVector2D ThreeDWidget::mOffset[9] = {
     QVector2D(1, -1), QVector2D(0, -1), QVector2D(-1, -1)
 };
 
+
 GLfloat ThreeDWidget::mSharpeningKernel[9] = {
-    0.0f, -0.5f,  0.0f,
+     0.0f, -0.5f,  0.0f,
     -0.5f,  3.0f, -0.5f,
-    0.0f, -0.5f,  0.0f
+     0.0f, -0.5f,  0.0f
 };
+
 
 const QVector2D ThreeDWidget::mTexCoords[4] = {
     QVector2D(0, 0),
@@ -40,12 +43,14 @@ const QVector2D ThreeDWidget::mTexCoords[4] = {
     QVector2D(1, 1)
 };
 
+
 const QVector3D ThreeDWidget::mVertices[4] = {
-    QVector3D( 1.6,  1.2, 0),
-    QVector3D( 1.6, -1.2, 0),
+    QVector3D(-1.6, -1.2, 0),
     QVector3D(-1.6,  1.2, 0),
-    QVector3D(-1.6, -1.2, 0)
+    QVector3D( 1.6, -1.2, 0),
+    QVector3D( 1.6,  1.2, 0)
 };
+
 
 ThreeDWidget::ThreeDWidget(QWidget* parent)
     : QGLWidget(parent)
@@ -68,39 +73,34 @@ ThreeDWidget::ThreeDWidget(QWidget* parent)
 }
 
 
+ThreeDWidget::~ThreeDWidget()
+{
+    /* ... */
+}
+
+
 void ThreeDWidget::videoFrameReady(const QImage& frame)
 {
     if (frame.isNull())
         return;
-    if (mTextureHandle)
-        deleteTexture(mTextureHandle);
     mFrameSize.setX(frame.width());
     mFrameSize.setY(frame.height());
-    // mTextureHandle = bindTexture(frame, GL_TEXTURE_2D, GL_RGBA);
-
-    glBindTexture(GL_TEXTURE_2D, mTextureHandle);
-    glTexParameteri(mTextureHandle, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(mTextureHandle, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(mTextureHandle, GL_TEXTURE_WRAP_S,     GL_CLAMP);
-    glTexParameteri(mTextureHandle, GL_TEXTURE_WRAP_T,     GL_CLAMP);
-    glTexImage2D(mTextureHandle, 1, GL_RGBA, frame.width(), frame.height(), 0, GL_RGBA, GL_UNSIGNED_BYTE, frame.bits());
-    updateGL();
-}
-
-
-void ThreeDWidget::setGamma(double gradient)
-{
-    mGamma = (GLfloat)gradient;
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, frame.width(), frame.height(), 0, GL_BGRA, GL_UNSIGNED_BYTE, frame.constBits());
     updateGL();
 }
 
 
 void ThreeDWidget::initializeGL(void)
 {
-    glEnable(GL_DEPTH_TEST);
+    glGenTextures(1, &mTextureHandle);
+    glBindTexture(GL_TEXTURE_2D, mTextureHandle);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+
     glEnable(GL_CULL_FACE);
     glEnable(GL_DEPTH_TEST);
-    glEnable(GL_ALPHA_TEST);
 #ifndef USE_SHADER
     glEnable(GL_TEXTURE_2D);
 #else
@@ -125,7 +125,7 @@ void ThreeDWidget::initializeGL(void)
 
 void ThreeDWidget::paintGL(void)
 {
-    qglClearColor(QColor(173, 164, 146));
+    glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 #ifndef USE_SHADER
@@ -141,7 +141,7 @@ void ThreeDWidget::paintGL(void)
     glEnableClientState(GL_TEXTURE_COORD_ARRAY);
 #else
     QMatrix4x4 m;
-    m.perspective(38.0, qreal(width()) / height(), 0.48, 12.0);
+    m.perspective((mFOVx + mFOVy) / 2, qreal(width()) / height(), 0.48, 12.0);
     m.translate(0.0f, 0.0f, mZoom);
     m.rotate(mXRot, 1.0f, 0.0f, 0.0f);
     m.rotate(mYRot, 0.0f, 1.0f, 0.0f);
@@ -157,7 +157,7 @@ void ThreeDWidget::paintGL(void)
     mShaderProgram->setAttributeArray(PROGRAM_TEXCOORD_ATTRIBUTE, mTexCoords);
 #endif
 
-    //glBindTexture(GL_TEXTURE_2D, mTextureHandle);
+//    glBindTexture(GL_TEXTURE_2D, mTextureHandle);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 }
 
@@ -168,7 +168,7 @@ void ThreeDWidget::resizeGL(int width, int height)
 #ifndef USE_SHADER
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    gluPerspective(38.0, (GLdouble)width/(GLdouble)height, 0.48, 12.0);
+    gluPerspective((mFOVx + mFOVy) / 2, (GLdouble)width/(GLdouble)height, 0.48, 12.0);
     glMatrixMode(GL_MODELVIEW);
 #endif
 }
@@ -298,6 +298,22 @@ void ThreeDWidget::setZoom(float zoom)
         mZoom = zoom;
         updateGL();
     }
+}
+
+
+void ThreeDWidget::setGamma(double gradient)
+{
+    mGamma = (GLfloat)gradient;
+    updateGL();
+}
+
+
+void ThreeDWidget::setFOV(float x, float y)
+{
+    mFOVx = x;
+    mFOVy = y;
+    qDebug() << "field of view (x°, y°): (" << x << "," << y << ")";
+    updateGL();
 }
 
 

@@ -53,9 +53,6 @@ void MainWindow::restoreSettings(void)
     ui->gammaSpinBox->setValue(settings.value("Options/gamma", 2.2).toDouble());
     ui->sharpeningSlider->setValue(settings.value("Options/sharpening", 0).toInt());
     ui->tiltSpinBox->setValue(settings.value("Sensor/tilt", 0).toInt());
-//    mThreeDWidget->setXRotation(settings.value("Options/xRot", ThreeDWidget::DefaultXRot).toFloat());
-//    mThreeDWidget->setYRotation(settings.value("Options/yRot", ThreeDWidget::DefaultYRot).toFloat());
-//    mThreeDWidget->setZoom(settings.value("Options/zoom", ThreeDWidget::DefaultZoom).toFloat());
 }
 
 
@@ -63,8 +60,6 @@ void MainWindow::saveSettings(void)
 {
     QSettings settings(Company, AppName);
     settings.setValue("MainWindow/geometry", saveGeometry());
-    settings.setValue("Options/xRot", mThreeDWidget->xRotation());
-    settings.setValue("Options/yRot", mThreeDWidget->yRotation());
     settings.setValue("Options/zoom", mThreeDWidget->zoom());
     settings.setValue("Options/nearClipping", ui->nearClippingSpinBox->value());
     settings.setValue("Options/farClipping", ui->farClippingSpinBox->value());
@@ -120,16 +115,12 @@ void MainWindow::initSensor(void)
     mDepthGenerator.GetMetaData(mDepthMetaData);
     mVideoGenerator.GetMetaData(mVideoMetaData);
 
-    mVideoImage = QImage(mVideoMetaData.XRes(), mVideoMetaData.YRes(), QImage::Format_ARGB32);
-    mDepthImage = QImage(mDepthMetaData.XRes(), mDepthMetaData.YRes(), QImage::Format_ARGB32);
-
-    qDebug() << "depth image resolution: " << mDepthMetaData.XRes() << "x" << mDepthMetaData.YRes() << "@" << mDepthMetaData.FPS() << "fps";
-    qDebug() << "video image resolution: " << mVideoMetaData.XRes() << "x" << mVideoMetaData.YRes() << "@" << mVideoMetaData.FPS() << "fps";
+    mVideoImage = QImage(mVideoMetaData.XRes(), mVideoMetaData.YRes(), QImage::Format_RGB32);
+    mDepthImage = QImage(mDepthMetaData.XRes(), mDepthMetaData.YRes(), QImage::Format_RGB32);
 
     XnFieldOfView fov;
     mDepthGenerator.GetFieldOfView(fov);
-    qDebug() << "field of view: " << (fov.fHFOV/M_PI*180) << (fov.fVFOV/M_PI*180);
-
+    mThreeDWidget->setFOV(fov.fHFOV/M_PI*180, fov.fVFOV/M_PI*180);
 }
 
 
@@ -161,13 +152,13 @@ void MainWindow::timerEvent(QTimerEvent* e)
         return;
     }
 
-    QRgb* dstDepth = reinterpret_cast<QRgb*>(mDepthImage.bits());
-    QRgb* dstVideo = reinterpret_cast<QRgb*>(mVideoImage.bits());
+    QRgb* dstDepth = (QRgb*)mDepthImage.constBits();
+    QRgb* dstVideo = (QRgb*)mVideoImage.constBits();
     const int nearThreshold = ui->nearClippingSpinBox->value();
     const int farThreshold = ui->farClippingSpinBox->value();
     const int clipDelta = farThreshold - nearThreshold;
     const XnDepthPixel* depthPixels = mDepthGenerator.GetDepthMap();
-    const XnUInt8* videoPixels = mVideoGenerator.GetImageMap();
+    const XnUInt8* srcVideo = mVideoGenerator.GetImageMap();
     const XnDepthPixel* const depthPixelsEnd = depthPixels + (mDepthImage.width() * mDepthImage.height());
     while (depthPixels < depthPixelsEnd) {
         const int depth = int(*depthPixels++);
@@ -184,14 +175,11 @@ void MainWindow::timerEvent(QTimerEvent* e)
         else {
             const quint8 k = quint8(255 * (depth - nearThreshold) / clipDelta);
             cDepth = qRgb(k, k, k);
-            const XnUInt8 r = *(videoPixels+0);
-            const XnUInt8 g = *(videoPixels+1);
-            const XnUInt8 b = *(videoPixels+2);
-            *dstVideo = qRgb(r, g, b);
+            *dstVideo = qRgb(srcVideo[0], srcVideo[1], srcVideo[2]);
         }
-        videoPixels += 3;
         *dstDepth++ = cDepth;
-        *dstVideo++;
+        ++dstVideo;
+        srcVideo += 3;
     }
     mSensorWidget->depthFrameReady(mDepthImage);
     mThreeDWidget->videoFrameReady(mVideoImage);
