@@ -47,6 +47,7 @@ ThreeDWidget::ThreeDWidget(QWidget* parent)
 #ifdef USE_SHADER
     , mShaderProgram(NULL)
 #endif
+    , mBuffer(NULL)
 {
     setFocus(Qt::OtherFocusReason);
     setCursor(Qt::OpenHandCursor);
@@ -55,18 +56,41 @@ ThreeDWidget::ThreeDWidget(QWidget* parent)
 }
 
 
+ThreeDWidget::~ThreeDWidget()
+{
+    glDeleteFramebuffersEXT(GL_FRAMEBUFFER_EXT, &mFrameBufferHandle);
+    if (mBuffer)
+        delete [] mBuffer;
+}
+
+
 void ThreeDWidget::videoFrameReady(const QImage& frame)
 {
+    if (mBuffer == NULL)
+        mBuffer = new GLubyte[frame.width() * frame.height() * sizeof(GLuint)];
+    mFrameSize = frame.size();
     glBindTexture(GL_TEXTURE_2D, mTextureHandle);
-    if (mTextureHandle)
-        deleteTexture(mTextureHandle);
-    mTextureHandle = bindTexture(frame, GL_TEXTURE_2D);
+    glGetTexImage(GL_TEXTURE_2D, 0, GL_RGB, GL_UNSIGNED_BYTE, mBuffer);
     updateGL();
 }
 
 
 void ThreeDWidget::initializeGL(void)
 {
+    glGenFramebuffersEXT(1, &mFrameBufferHandle);
+    glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, mFrameBufferHandle);
+
+    glGenRenderbuffersEXT(1, &mRenderBufferHandle );
+    glBindRenderbufferEXT(GL_RENDERBUFFER_EXT, mRenderBufferHandle );
+    glRenderbufferStorageEXT(GL_RENDERBUFFER_EXT, GL_DEPTH_COMPONENT, mFrameSize.width(), mFrameSize.height());
+    glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, GL_RENDERBUFFER_EXT, mRenderBufferHandle);
+
+    glGenTextures(1, &mTextureHandle);
+    glBindTexture(GL_TEXTURE_2D, mFrameSize.height());
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB,  mFrameSize.width(), mFrameSize.height(), 0, GL_RGB, GL_UNSIGNED_BYTE, 0);
+    glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, mTextureHandle, 0);
 
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);

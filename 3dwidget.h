@@ -25,6 +25,7 @@ class ThreeDWidget : public QGLWidget
 
 public: // methods
     explicit ThreeDWidget(QWidget* parent = NULL);
+    ~ThreeDWidget();
     QSize minimumSizeHint(void) const { return QSize(320, 240); }
     QSize sizeHint(void) const { return QSize(640, 480); }
 
@@ -58,7 +59,11 @@ private: // variables
     float mZTrans;
     float mZoom;
     QPoint mLastPos;
+    GLubyte* mBuffer;
+    QSize mFrameSize;
     GLuint mTextureHandle;
+    GLuint mFrameBufferHandle;
+    GLuint mRenderBufferHandle;
 #ifdef USE_SHADER
     QGLShaderProgram* mShaderProgram;
 #endif
