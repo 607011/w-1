@@ -6,6 +6,7 @@
 
 #define USE_SHADER
 
+#include <GL/glew.h>
 #include <QMouseEvent>
 #include <QWheelEvent>
 #include <QKeyEvent>
@@ -13,7 +14,6 @@
 #include <QVector2D>
 #include <QVector3D>
 #include <QGLWidget>
-#include <gl/GLU.h>
 #ifdef USE_SHADER
 #include <QGLShaderProgram>
 #endif

@@ -7,14 +7,10 @@ greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
 TARGET = W-1
 TEMPLATE = app
-win32 {
-INCLUDEPATH += "C:/Program Files/OpenNI/Include"
-LIBS += "C:/Program Files/OpenNI/Lib/openNI.lib"
-}
-win64 {
-INCLUDEPATH += "C:/Program Files (x86)/OpenNI/Include"
-LIBS += "C:/Program Files (x86)/OpenNI/Lib/openNI.lib"
-}
+INCLUDEPATH += "$(OPEN_NI_INCLUDE)" \
+    "dep/glew-1.9.0/include"
+LIBS += "$(OPEN_NI_INSTALL_PATH)/Lib/openNI.lib"  \
+    "../w-1/dep/glew-1.9.0/lib/glew32.lib"
 
 SOURCES += main.cpp \
     mainwindow.cpp \
@@ -36,6 +32,6 @@ RESOURCES += \
 
 OTHER_FILES += \
     config/sample.xml \
-    README.md \
     shaders/fragmentshader.glsl \
-    shaders/vertexshader.glsl
+    shaders/vertexshader.glsl \
+    README.md

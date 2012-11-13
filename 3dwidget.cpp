@@ -97,6 +97,7 @@ void ThreeDWidget::setGamma(double gradient)
 
 void ThreeDWidget::initializeGL(void)
 {
+    glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_ALPHA_TEST);
