@@ -63,7 +63,7 @@ ThreeDWidget::ThreeDWidget(QWidget* parent)
     , mZoom(DefaultZoom)
     , mTextureHandle(0)
     #ifdef USE_SHADER
-    , mShaderProgram(NULL)
+    , mShaderProgram(new QGLShaderProgram(this))
     #endif
 {
     setFocus(Qt::OtherFocusReason);
@@ -75,7 +75,9 @@ ThreeDWidget::ThreeDWidget(QWidget* parent)
 
 ThreeDWidget::~ThreeDWidget()
 {
-    /* ... */
+#ifdef USE_SHADER
+    delete mShaderProgram;
+#endif
 }
 
 
@@ -106,10 +108,9 @@ void ThreeDWidget::initializeGL(void)
 #define PROGRAM_VERTEX_ATTRIBUTE 0
 #define PROGRAM_TEXCOORD_ATTRIBUTE 1
     QGLShader* vshader = new QGLShader(QGLShader::Vertex, this);
-    vshader->compileSourceFile(":/shaders/vertexshader.glsl");
+    vshader->compileSourceFile(":/shaders/wallvertexshader.glsl");
     QGLShader *fshader = new QGLShader(QGLShader::Fragment, this);
-    fshader->compileSourceFile(":/shaders/fragmentshader.glsl");
-    mShaderProgram = new QGLShaderProgram(this);
+    fshader->compileSourceFile(":/shaders/wallfragmentshader.glsl");
     mShaderProgram->addShader(vshader);
     mShaderProgram->addShader(fshader);
     mShaderProgram->bindAttributeLocation("vertex", PROGRAM_VERTEX_ATTRIBUTE);
