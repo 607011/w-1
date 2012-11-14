@@ -13,6 +13,7 @@
 #include <QVector2D>
 #include <QVector3D>
 #include <QGLWidget>
+#include <QGLFramebufferObject>
 #ifdef USE_SHADER
 #include <QGLShaderProgram>
 #endif
@@ -37,8 +38,8 @@ public: // methods
     void setZoom(float);
     void setFOV(float x, float y);
     void setThresholds(int near, int far);
-    void depthFrameReady(const XnUInt16* const, int width, int height);
-    void videoFrameReady(const XnUInt8* const, int width, int height);
+    void setDepthFrame(const XnDepthPixel* const, int width, int height);
+    void setVideoFrame(const XnUInt8* const, int width, int height);
 
     float xRotation(void) const { return mXRot; }
     float yRotation(void) const { return mYRot; }
@@ -68,9 +69,9 @@ private: // variables
     GLfloat mZTrans;
     GLfloat mZoom;
     QPoint mLastPos;
-    GLuint mTextureHandle;
-    GLuint mFrameBufferHandle;
-    GLuint mRenderBufferHandle;
+    GLuint mVideoTextureHandle;
+    GLuint mDepthTextureHandle;
+    GLuint* mDepthDataBuffer;
 #ifdef USE_SHADER
     QGLShaderProgram* mShaderProgram;
 #endif

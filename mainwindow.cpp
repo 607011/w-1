@@ -111,7 +111,6 @@ void MainWindow::initSensor(void)
     }
 
     mContext.SetGlobalMirror(0);
-    mDepthGenerator.GetAlternativeViewPointCap().SetViewPoint(mVideoGenerator);
     mDepthGenerator.GetMetaData(mDepthMetaData);
     mVideoGenerator.GetMetaData(mVideoMetaData);
 
@@ -135,16 +134,16 @@ void MainWindow::closeEvent(QCloseEvent* e)
 void MainWindow::timerEvent(QTimerEvent* e)
 {
     if (e->timerId() == mFrameTimerId) {
-        mDepthGenerator.GetAlternativeViewPointCap().SetViewPoint(mVideoGenerator);
         XnStatus rc;
         rc = mContext.WaitAndUpdateAll();
         if (rc != XN_STATUS_OK) {
-            qDebug() << "Failed updating data:" << xnGetStatusString(rc);
+            qWarning() << "Failed updating data:" << xnGetStatusString(rc);
             return;
         }
+        mDepthGenerator.GetAlternativeViewPointCap().SetViewPoint(mVideoGenerator);
         m3DWidget->setThresholds(ui->nearClippingSpinBox->value(), ui->farClippingSpinBox->value());
-        m3DWidget->videoFrameReady(mVideoGenerator.GetImageMap(), mVideoMetaData.XRes(), mVideoMetaData.YRes());
-        m3DWidget->depthFrameReady(mDepthGenerator.GetDepthMap(), mDepthMetaData.XRes(), mDepthMetaData.YRes());
+        m3DWidget->setVideoFrame(mVideoGenerator.GetImageMap(), mVideoMetaData.XRes(), mVideoMetaData.YRes());
+        m3DWidget->setDepthFrame(mDepthGenerator.GetDepthMap(), mDepthMetaData.XRes(), mDepthMetaData.YRes());
         m3DWidget->updateGL();
         if (++mFrameCount > 10) {
             ui->fpsLineEdit->setText(QString("%1").arg(1e3 * mFrameCount / mT0.elapsed(), 0, 'f', 3));
@@ -163,11 +162,15 @@ void MainWindow::stopSensor(void)
     if (mFrameTimerId) {
         killTimer(mFrameTimerId);
         mFrameTimerId = 0;
+    }
+    if (mRegressTimerId) {
         killTimer(mRegressTimerId);
         mRegressTimerId = 0;
-        mVideoGenerator.StopGenerating();
-        mDepthGenerator.StopGenerating();
     }
+    if (mVideoGenerator.IsGenerating())
+        mVideoGenerator.StopGenerating();
+    if (mDepthGenerator.IsGenerating())
+        mDepthGenerator.StopGenerating();
 }
 
 

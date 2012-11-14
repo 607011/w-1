@@ -61,7 +61,9 @@ ThreeDWidget::ThreeDWidget(QWidget* parent)
     , mYTrans(0)
     , mZTrans(0)
     , mZoom(DefaultZoom)
-    , mTextureHandle(0)
+    , mVideoTextureHandle(0)
+    , mDepthTextureHandle(0)
+    , mDepthDataBuffer(NULL)
     #ifdef USE_SHADER
     , mShaderProgram(new QGLShaderProgram(this))
     #endif
@@ -80,23 +82,45 @@ ThreeDWidget::~ThreeDWidget()
 #ifdef USE_SHADER
     delete mShaderProgram;
 #endif
+    if (mDepthDataBuffer)
+        delete mDepthDataBuffer;
 }
 
 
-void ThreeDWidget::videoFrameReady(const XnUInt8* const pixels, int width, int height)
+void ThreeDWidget::setVideoFrame(const XnUInt8* const pixels, int width, int height)
 {
     mVideoFrameSize.setX(width);
     mVideoFrameSize.setY(height);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_BGRA, GL_UNSIGNED_BYTE, pixels);
+    glBindTexture(GL_TEXTURE_2D, mVideoTextureHandle);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, pixels);
 }
 
 
-void ThreeDWidget::depthFrameReady(const XnUInt16* const, int width, int height)
+void ThreeDWidget::setDepthFrame(const XnDepthPixel* const pixels, int width, int height)
 {
-    mDepthFrameSize.setX(width);
-    mDepthFrameSize.setY(height);
-    // TODO: put frame in buffer
-    // make stencil mask with thresholds
+    glPushAttrib(GL_ALL_ATTRIB_BITS);
+    if ((width != int(mDepthFrameSize.x()) || height != int(mDepthFrameSize.y()))) {
+        mDepthFrameSize.setX(width);
+        mDepthFrameSize.setY(height);
+        if (mDepthDataBuffer)
+            delete [] mDepthDataBuffer;
+        mDepthDataBuffer = new GLuint[width * height];
+    }
+
+    GLuint* dst = mDepthDataBuffer;
+    const XnDepthPixel* depthPixels = pixels;
+//    const XnDepthPixel* const depthPixelsEnd = depthPixels + (width * height);
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            GLuint v = GLuint(*depthPixels++);
+            *dst++ = (y % 2 == 0)? qRgb(qRed(v), qGreen(v), qBlue(v)) : qRgb(255, 255, 255);
+        }
+    }
+
+    glBindTexture(GL_TEXTURE_2D, mDepthTextureHandle);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_ARRAY_BUFFER, width, height, 0, GL_ARRAY_BUFFER, GL_UNSIGNED_BYTE, mDepthDataBuffer);
+
+    glPopAttrib();
 }
 
 
@@ -109,9 +133,20 @@ void ThreeDWidget::setThresholds(int nearThreshold, int farThreshold)
 
 void ThreeDWidget::initializeGL(void)
 {
-    glGenTextures(1, &mTextureHandle);
-    glBindTexture(GL_TEXTURE_2D, mTextureHandle);
+    glGenTextures(1, &mVideoTextureHandle);
+    glActiveTexture(GL_TEXTURE0);
+    glEnable(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, mVideoTextureHandle);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+
+    glActiveTexture(GL_TEXTURE1);
+    glEnable(GL_TEXTURE_2D);
+    glGenTextures(1, &mDepthTextureHandle);
+    glBindTexture(GL_TEXTURE_2D, mDepthTextureHandle);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
@@ -128,12 +163,15 @@ void ThreeDWidget::initializeGL(void)
     fshader->compileSourceFile(":/shaders/wallfragmentshader.glsl");
     mShaderProgram->addShader(vshader);
     mShaderProgram->addShader(fshader);
-    mShaderProgram->bindAttributeLocation("vertex", PROGRAM_VERTEX_ATTRIBUTE);
-    mShaderProgram->bindAttributeLocation("texCoord", PROGRAM_TEXCOORD_ATTRIBUTE);
+    mShaderProgram->bindAttributeLocation("aVertex", PROGRAM_VERTEX_ATTRIBUTE);
+    mShaderProgram->bindAttributeLocation("aTexCoord", PROGRAM_TEXCOORD_ATTRIBUTE);
     mShaderProgram->link();
     mShaderProgram->bind();
-    mShaderProgram->setUniformValue("texture", 0);
-    mShaderProgram->setUniformValueArray("offset", mOffset, 9);
+    const int videoTextureLocation = mShaderProgram->uniformLocation("uVideoTexture");
+    const int depthTextureLocation = mShaderProgram->uniformLocation("uDepthTexture");
+    mShaderProgram->setUniformValue(videoTextureLocation, (GLint)0);
+    mShaderProgram->setUniformValue(depthTextureLocation, (GLint)1);
+    mShaderProgram->setUniformValueArray("uOffset", mOffset, 9);
 #endif
 }
 
@@ -142,7 +180,6 @@ void ThreeDWidget::paintGL(void)
 {
     glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
 #ifndef USE_SHADER
     glLoadIdentity();
     glTranslatef(0.0f, 0.0f, mZoom);
@@ -162,10 +199,10 @@ void ThreeDWidget::paintGL(void)
     m.rotate(mYRot, 0.0f, 1.0f, 0.0f);
     m.rotate(mZRot, 0.0f, 0.0f, 1.0f);
     m.translate(mXTrans, mYTrans, mZTrans);
-    mShaderProgram->setUniformValue("gamma", mGamma);
-    mShaderProgram->setUniformValue("matrix", m);
-    mShaderProgram->setUniformValue("size", mVideoFrameSize);
-    mShaderProgram->setUniformValueArray("sharpen", mSharpeningKernel, 9, 1);
+    mShaderProgram->setUniformValue("uGamma", mGamma);
+    mShaderProgram->setUniformValue("uMatrix", m);
+    mShaderProgram->setUniformValue("uSize", mVideoFrameSize);
+    mShaderProgram->setUniformValueArray("uSharpen", mSharpeningKernel, 9, 1);
     mShaderProgram->enableAttributeArray(PROGRAM_VERTEX_ATTRIBUTE);
     mShaderProgram->enableAttributeArray(PROGRAM_TEXCOORD_ATTRIBUTE);
     mShaderProgram->setAttributeArray(PROGRAM_VERTEX_ATTRIBUTE, mVertices);
@@ -326,7 +363,6 @@ void ThreeDWidget::setFOV(float x, float y)
 {
     mFOVx = x;
     mFOVy = y;
-    qDebug() << "field of view (x°, y°): (" << x << "," << y << ")";
     updateGL();
 }
 
