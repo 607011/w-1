@@ -36,7 +36,7 @@ protected:
 private:
     Ui::MainWindow *ui;
     SensorWidget* mSensorWidget;
-    ThreeDWidget* mThreeDWidget;
+    ThreeDWidget* m3DWidget;
     SensorMotor mSensorMotor;
     int mFrameTimerId;
     int mRegressTimerId;
@@ -50,8 +50,6 @@ private:
     qreal hB;
     QTime mT0;
     int mFrameCount;
-    QImage mVideoImage;
-    QImage mDepthImage;
 
 private: // methods
     void initSensor(void);

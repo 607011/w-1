@@ -65,6 +65,8 @@ ThreeDWidget::ThreeDWidget(QWidget* parent)
     #ifdef USE_SHADER
     , mShaderProgram(new QGLShaderProgram(this))
     #endif
+    , mNearThreshold(0)
+    , mFarThreshold(0xffffU)
 {
     setFocus(Qt::OtherFocusReason);
     setCursor(Qt::OpenHandCursor);
@@ -81,14 +83,27 @@ ThreeDWidget::~ThreeDWidget()
 }
 
 
-void ThreeDWidget::videoFrameReady(const QImage& frame)
+void ThreeDWidget::videoFrameReady(const XnUInt8* const pixels, int width, int height)
 {
-    if (frame.isNull())
-        return;
-    mFrameSize.setX(frame.width());
-    mFrameSize.setY(frame.height());
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, frame.width(), frame.height(), 0, GL_BGRA, GL_UNSIGNED_BYTE, frame.constBits());
-    updateGL();
+    mVideoFrameSize.setX(width);
+    mVideoFrameSize.setY(height);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_BGRA, GL_UNSIGNED_BYTE, pixels);
+}
+
+
+void ThreeDWidget::depthFrameReady(const XnUInt16* const, int width, int height)
+{
+    mDepthFrameSize.setX(width);
+    mDepthFrameSize.setY(height);
+    // TODO: put frame in buffer
+    // make stencil mask with thresholds
+}
+
+
+void ThreeDWidget::setThresholds(int nearThreshold, int farThreshold)
+{
+    mNearThreshold = nearThreshold;
+    mFarThreshold = farThreshold;
 }
 
 
@@ -150,7 +165,7 @@ void ThreeDWidget::paintGL(void)
     m.translate(mXTrans, mYTrans, mZTrans);
     mShaderProgram->setUniformValue("gamma", mGamma);
     mShaderProgram->setUniformValue("matrix", m);
-    mShaderProgram->setUniformValue("size", mFrameSize);
+    mShaderProgram->setUniformValue("size", mVideoFrameSize);
     mShaderProgram->setUniformValueArray("sharpen", mSharpeningKernel, 9, 1);
     mShaderProgram->enableAttributeArray(PROGRAM_VERTEX_ATTRIBUTE);
     mShaderProgram->enableAttributeArray(PROGRAM_TEXCOORD_ATTRIBUTE);

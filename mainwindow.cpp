@@ -20,8 +20,8 @@ MainWindow::MainWindow(QWidget* parent)
 
     mSensorWidget = new SensorWidget;
     ui->gridLayout->addWidget(mSensorWidget, 0, 0);
-    mThreeDWidget = new ThreeDWidget;
-    ui->gridLayout->addWidget(mThreeDWidget, 0, 1);
+    m3DWidget = new ThreeDWidget;
+    ui->gridLayout->addWidget(m3DWidget, 0, 1);
 
     mSensorMotor.open();
 
@@ -29,8 +29,8 @@ MainWindow::MainWindow(QWidget* parent)
     startSensor();
 
     QObject::connect(ui->tiltSpinBox, SIGNAL(valueChanged(int)), &mSensorMotor, SLOT(setTilt(int)));
-    QObject::connect(ui->gammaSpinBox, SIGNAL(valueChanged(double)), mThreeDWidget, SLOT(setGamma(double)));
-    QObject::connect(ui->sharpeningSlider, SIGNAL(valueChanged(int)), mThreeDWidget, SLOT(setSharpening(int)));
+    QObject::connect(ui->gammaSpinBox, SIGNAL(valueChanged(double)), m3DWidget, SLOT(setGamma(double)));
+    QObject::connect(ui->sharpeningSlider, SIGNAL(valueChanged(int)), m3DWidget, SLOT(setSharpening(int)));
 
     restoreSettings();
 }
@@ -39,7 +39,7 @@ MainWindow::MainWindow(QWidget* parent)
 MainWindow::~MainWindow()
 {
     delete mSensorWidget;
-    delete mThreeDWidget;
+    delete m3DWidget;
     delete ui;
 }
 
@@ -60,7 +60,7 @@ void MainWindow::saveSettings(void)
 {
     QSettings settings(Company, AppName);
     settings.setValue("MainWindow/geometry", saveGeometry());
-    settings.setValue("Options/zoom", mThreeDWidget->zoom());
+    settings.setValue("Options/zoom", m3DWidget->zoom());
     settings.setValue("Options/nearClipping", ui->nearClippingSpinBox->value());
     settings.setValue("Options/farClipping", ui->farClippingSpinBox->value());
     settings.setValue("Options/gamma", ui->gammaSpinBox->value());
@@ -115,12 +115,9 @@ void MainWindow::initSensor(void)
     mDepthGenerator.GetMetaData(mDepthMetaData);
     mVideoGenerator.GetMetaData(mVideoMetaData);
 
-    mVideoImage = QImage(mVideoMetaData.XRes(), mVideoMetaData.YRes(), QImage::Format_RGB32);
-    mDepthImage = QImage(mDepthMetaData.XRes(), mDepthMetaData.YRes(), QImage::Format_RGB32);
-
     XnFieldOfView fov;
     mDepthGenerator.GetFieldOfView(fov);
-    mThreeDWidget->setFOV(fov.fHFOV/M_PI*180, fov.fVFOV/M_PI*180);
+    m3DWidget->setFOV(fov.fHFOV/M_PI*180, fov.fVFOV/M_PI*180);
 }
 
 
@@ -137,57 +134,26 @@ void MainWindow::closeEvent(QCloseEvent* e)
 
 void MainWindow::timerEvent(QTimerEvent* e)
 {
-    if (mFrameTimerId != e->timerId())
-        return;
-    mDepthGenerator.GetAlternativeViewPointCap().SetViewPoint(mVideoGenerator);
-    XnStatus rc;
-    rc = mContext.WaitOneUpdateAll(mDepthGenerator);
-    if (rc != XN_STATUS_OK) {
-        qDebug() << "Failed updating data:" << xnGetStatusString(rc);
-        return;
+    if (e->timerId() == mFrameTimerId) {
+        mDepthGenerator.GetAlternativeViewPointCap().SetViewPoint(mVideoGenerator);
+        XnStatus rc;
+        rc = mContext.WaitAndUpdateAll();
+        if (rc != XN_STATUS_OK) {
+            qDebug() << "Failed updating data:" << xnGetStatusString(rc);
+            return;
+        }
+        m3DWidget->setThresholds(ui->nearClippingSpinBox->value(), ui->farClippingSpinBox->value());
+        m3DWidget->videoFrameReady(mVideoGenerator.GetImageMap(), mVideoMetaData.XRes(), mVideoMetaData.YRes());
+        m3DWidget->depthFrameReady(mDepthGenerator.GetDepthMap(), mDepthMetaData.XRes(), mDepthMetaData.YRes());
+        m3DWidget->updateGL();
+        if (++mFrameCount > 10) {
+            ui->fpsLineEdit->setText(QString("%1").arg(1e3 * mFrameCount / mT0.elapsed(), 0, 'f', 3));
+            mT0.start();
+            mFrameCount = 0;
+        }
     }
-    rc = mContext.WaitOneUpdateAll(mVideoGenerator);
-    if (rc != XN_STATUS_OK) {
-        qDebug() << "Failed updating data:" << xnGetStatusString(rc);
-        return;
-    }
-
-    QRgb* dstDepth = (QRgb*)mDepthImage.constBits();
-    QRgb* dstVideo = (QRgb*)mVideoImage.constBits();
-    const int nearThreshold = ui->nearClippingSpinBox->value();
-    const int farThreshold = ui->farClippingSpinBox->value();
-    const int clipDelta = farThreshold - nearThreshold;
-    const XnDepthPixel* depthPixels = mDepthGenerator.GetDepthMap();
-    const XnUInt8* srcVideo = mVideoGenerator.GetImageMap();
-    const XnDepthPixel* const depthPixelsEnd = depthPixels + (mDepthImage.width() * mDepthImage.height());
-    while (depthPixels < depthPixelsEnd) {
-        const int depth = int(*depthPixels++);
-        QRgb cDepth;
-        if (depth == 0) {
-            cDepth = qRgb(0, 251, 190);
-        }
-        else if (depth < nearThreshold) {
-            cDepth = qRgb(251, 85, 5);
-        }
-        else if (depth > farThreshold) {
-            cDepth = qRgb(8, 98, 250);
-        }
-        else {
-            const quint8 k = quint8(255 * (depth - nearThreshold) / clipDelta);
-            cDepth = qRgb(k, k, k);
-            *dstVideo = qRgb(srcVideo[0], srcVideo[1], srcVideo[2]);
-        }
-        *dstDepth++ = cDepth;
-        ++dstVideo;
-        srcVideo += 3;
-    }
-    mSensorWidget->depthFrameReady(mDepthImage);
-    mThreeDWidget->videoFrameReady(mVideoImage);
-    regressH();
-    if (++mFrameCount > 10) {
-        ui->fpsLineEdit->setText(QString("%1").arg(1e3 * mFrameCount / mT0.elapsed(), 0, 'f', 3));
-        mT0.start();
-        mFrameCount = 0;
+    else if (e->timerId() == mRegressTimerId) {
+        regressH();
     }
 }
 
@@ -197,6 +163,8 @@ void MainWindow::stopSensor(void)
     if (mFrameTimerId) {
         killTimer(mFrameTimerId);
         mFrameTimerId = 0;
+        killTimer(mRegressTimerId);
+        mRegressTimerId = 0;
         mVideoGenerator.StopGenerating();
         mDepthGenerator.StopGenerating();
     }
@@ -211,6 +179,7 @@ void MainWindow::startSensor(void)
         mDepthGenerator.StartGenerating();
         mVideoGenerator.StartGenerating();
         mFrameTimerId = startTimer(1000 / mVideoMetaData.FPS() / 2);
+        mRegressTimerId = startTimer(2000);
     }
 }
 

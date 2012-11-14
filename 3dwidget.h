@@ -16,6 +16,7 @@
 #ifdef USE_SHADER
 #include <QGLShaderProgram>
 #endif
+#include <XnCppWrapper.h>
 
 
 class ThreeDWidget : public QGLWidget
@@ -35,6 +36,9 @@ public: // methods
     void setYTranslation(float);
     void setZoom(float);
     void setFOV(float x, float y);
+    void setThresholds(int near, int far);
+    void depthFrameReady(const XnUInt16* const, int width, int height);
+    void videoFrameReady(const XnUInt8* const, int width, int height);
 
     float xRotation(void) const { return mXRot; }
     float yRotation(void) const { return mYRot; }
@@ -47,7 +51,6 @@ public: // methods
     static const GLfloat DefaultZRot;
 
 public slots:
-    void videoFrameReady(const QImage&);
     void setGamma(double);
     void setSharpening(int percent);
 
@@ -72,10 +75,13 @@ private: // variables
     QGLShaderProgram* mShaderProgram;
 #endif
     GLfloat mGamma;
-    QVector2D mFrameSize;
+    QVector2D mVideoFrameSize;
+    QVector2D mDepthFrameSize;
     GLenum mGLerror;
     GLfloat mFOVx;
     GLfloat mFOVy;
+    int mNearThreshold;
+    int mFarThreshold;
 
 protected: // methods
     void initializeGL(void);
