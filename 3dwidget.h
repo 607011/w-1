@@ -4,8 +4,7 @@
 #ifndef __3DWIDGET_H_
 #define __3DWIDGET_H_
 
-#define USE_SHADER
-
+#include "main.h"
 #include <GL/glew.h>
 #include <QMouseEvent>
 #include <QWheelEvent>

@@ -1,6 +1,6 @@
 <RCC>
     <qresource prefix="/shaders">
-        <file alias="fragmentshader.glsl">shaders/fragmentshader.glsl</file>
-        <file alias="vertexshader.glsl">shaders/vertexshader.glsl</file>
+        <file alias="wallfragmentshader.glsl">shaders/wallfragmentshader.glsl</file>
+        <file alias="wallvertexshader.glsl">shaders/wallvertexshader.glsl</file>
     </qresource>
 </RCC>

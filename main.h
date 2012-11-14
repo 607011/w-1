@@ -6,6 +6,8 @@
 
 #include <QString>
 
+#define USE_SHADER
+
 extern const QString Company;
 extern const QString AppName;
 extern const QString AppUrl;
