@@ -37,4 +37,6 @@ OTHER_FILES += \
     config/sample.xml \
     README.md \
     shaders/wallfragmentshader.glsl \
-    shaders/wallvertexshader.glsl
+    shaders/wallvertexshader.glsl \
+    shaders/depthvertexshader.glsl \
+    shaders/depthfragmentshader.glsl

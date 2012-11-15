@@ -2,5 +2,7 @@
     <qresource prefix="/shaders">
         <file alias="wallfragmentshader.glsl">shaders/wallfragmentshader.glsl</file>
         <file alias="wallvertexshader.glsl">shaders/wallvertexshader.glsl</file>
+        <file alias="depthfragmentshader.glsl">shaders/depthfragmentshader.glsl</file>
+        <file alias="depthvertexshader.glsl">shaders/depthvertexshader.glsl</file>
     </qresource>
 </RCC>

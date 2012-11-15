@@ -72,8 +72,10 @@ private: // variables
     GLuint mVideoTextureHandle;
     GLuint mDepthTextureHandle;
     GLuint* mDepthDataBuffer;
+    QGLFramebufferObject* mDepthFBO;
 #ifdef USE_SHADER
-    QGLShaderProgram* mShaderProgram;
+    QGLShaderProgram* mWallShaderProgram;
+    QGLShaderProgram* mDepthShaderProgram;
 #endif
     GLfloat mGamma;
     QVector2D mVideoFrameSize;
