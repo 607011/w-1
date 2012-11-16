@@ -66,6 +66,7 @@ ThreeDWidget::ThreeDWidget(QWidget* parent)
     , mVideoTextureHandle(0)
     , mDepthTextureHandle(0)
     , mDepthFBO(NULL)
+    , mDepthData(NULL)
     , mWallShaderProgram(new QGLShaderProgram(this))
     , mDepthShaderProgram(new QGLShaderProgram(this))
     , mNearThreshold(0)
@@ -86,6 +87,8 @@ ThreeDWidget::~ThreeDWidget()
         delete mDepthShaderProgram;
     if (mDepthFBO)
         delete mDepthFBO;
+    if (mDepthData)
+        delete [] mDepthData;
 }
 
 
@@ -108,6 +111,9 @@ void ThreeDWidget::setDepthFrame(const XnDepthPixel* const pixels, int width, in
         if (mDepthFBO)
             delete mDepthFBO;
         mDepthFBO = new QGLFramebufferObject(width, height);
+        if (mDepthData)
+            delete mDepthData;
+        mDepthData = new GLuint[width * height];
     }
     glBindTexture(GL_TEXTURE_2D, mDepthTextureHandle);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, width, height, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT, pixels);
@@ -116,8 +122,10 @@ void ThreeDWidget::setDepthFrame(const XnDepthPixel* const pixels, int width, in
     mDepthShaderProgram->setUniformValue("uFarThreshold", (GLfloat)mFarThreshold);
     mDepthFBO->bind();
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, mDepthData);
     mDepthFBO->release();
-    emit depthFrameReady(mDepthFBO->toImage());
+    QImage image((uchar*)mDepthData, width, height, QImage::Format_RGB32);
+    emit depthFrameReady(image);
 
     glPopAttrib();
 }

@@ -8,5 +8,6 @@ varying mediump vec4 vTexCoord;
 void main(void)
 {
     gl_Position = aVertex;
-    vTexCoord = vec4(1.0, 1.0, 1.0, 1.0) - aTexCoord;
+    // vTexCoord = vec4(1.0, 1.0, 1.0, 1.0) - aTexCoord;
+    vTexCoord = aTexCoord;
 }

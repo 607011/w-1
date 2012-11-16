@@ -73,6 +73,7 @@ private: // variables
     GLuint mVideoTextureHandle;
     GLuint mDepthTextureHandle;
     QGLFramebufferObject* mDepthFBO;
+    GLuint* mDepthData;
     QGLShaderProgram* mWallShaderProgram;
     QGLShaderProgram* mDepthShaderProgram;
     GLfloat mGamma;
