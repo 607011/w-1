@@ -20,7 +20,7 @@ public:
     QSize sizeHint(void) { return QSize(640, 480); }
 
 public slots:
-    void depthFrameReady(const QImage&);
+    void setDepthFrame(const QImage&);
 
 protected:
     void paintEvent(QPaintEvent*);

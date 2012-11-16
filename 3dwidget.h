@@ -4,19 +4,17 @@
 #ifndef __3DWIDGET_H_
 #define __3DWIDGET_H_
 
-#include "main.h"
 #include <GL/glew.h>
 #include <QMouseEvent>
 #include <QWheelEvent>
 #include <QKeyEvent>
+#include <QRgb>
 #include <QPoint>
 #include <QVector2D>
 #include <QVector3D>
 #include <QGLWidget>
 #include <QGLFramebufferObject>
-#ifdef USE_SHADER
 #include <QGLShaderProgram>
-#endif
 #include <XnCppWrapper.h>
 
 
@@ -51,6 +49,9 @@ public: // methods
     static const GLfloat DefaultYRot;
     static const GLfloat DefaultZRot;
 
+signals:
+    void depthFrameReady(const QImage&);
+
 public slots:
     void setGamma(double);
     void setSharpening(int percent);
@@ -71,12 +72,9 @@ private: // variables
     QPoint mLastPos;
     GLuint mVideoTextureHandle;
     GLuint mDepthTextureHandle;
-    GLuint* mDepthDataBuffer;
     QGLFramebufferObject* mDepthFBO;
-#ifdef USE_SHADER
     QGLShaderProgram* mWallShaderProgram;
     QGLShaderProgram* mDepthShaderProgram;
-#endif
     GLfloat mGamma;
     QVector2D mVideoFrameSize;
     QVector2D mDepthFrameSize;

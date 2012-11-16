@@ -4,10 +4,9 @@
 attribute highp vec4 aVertex;
 attribute mediump vec4 aTexCoord;
 varying mediump vec4 vTexCoord;
-uniform mediump mat4 uMatrix;
 
 void main(void)
 {
-    gl_Position = uMatrix * aVertex;
-    vTexCoord = aTexCoord;
+    gl_Position = aVertex;
+    vTexCoord = vec4(1.0, 1.0, 1.0, 1.0) - aTexCoord;
 }

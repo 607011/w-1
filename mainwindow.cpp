@@ -32,6 +32,8 @@ MainWindow::MainWindow(QWidget* parent)
     QObject::connect(ui->gammaSpinBox, SIGNAL(valueChanged(double)), m3DWidget, SLOT(setGamma(double)));
     QObject::connect(ui->sharpeningSlider, SIGNAL(valueChanged(int)), m3DWidget, SLOT(setSharpening(int)));
 
+    QObject::connect(m3DWidget, SIGNAL(depthFrameReady(const QImage&)), mSensorWidget, SLOT(setDepthFrame(const QImage&)));
+
     restoreSettings();
 }
 
@@ -144,7 +146,6 @@ void MainWindow::timerEvent(QTimerEvent* e)
         m3DWidget->setThresholds(ui->nearClippingSpinBox->value(), ui->farClippingSpinBox->value());
         m3DWidget->setVideoFrame(mVideoGenerator.GetImageMap(), mVideoMetaData.XRes(), mVideoMetaData.YRes());
         m3DWidget->setDepthFrame(mDepthGenerator.GetDepthMap(), mDepthMetaData.XRes(), mDepthMetaData.YRes());
-        m3DWidget->updateGL();
         if (++mFrameCount > 10) {
             ui->fpsLineEdit->setText(QString("%1").arg(1e3 * mFrameCount / mT0.elapsed(), 0, 'f', 3));
             mT0.start();
