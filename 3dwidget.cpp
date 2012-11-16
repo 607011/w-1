@@ -69,6 +69,7 @@ ThreeDWidget::ThreeDWidget(QWidget* parent)
     , mDepthData(NULL)
     , mWallShaderProgram(new QGLShaderProgram(this))
     , mDepthShaderProgram(new QGLShaderProgram(this))
+    , mGamma(2.1f)
     , mNearThreshold(0)
     , mFarThreshold(0xffffU)
 {
@@ -104,6 +105,7 @@ void ThreeDWidget::setVideoFrame(const XnUInt8* const pixels, int width, int hei
 
 void ThreeDWidget::setDepthFrame(const XnDepthPixel* const pixels, int width, int height)
 {
+    // alle Zustände der GL-Engine sichern
     glPushAttrib(GL_ALL_ATTRIB_BITS);
     if ((width != int(mDepthFrameSize.x()) || height != int(mDepthFrameSize.y()))) {
         mDepthFrameSize.setX(width);
@@ -115,18 +117,28 @@ void ThreeDWidget::setDepthFrame(const XnDepthPixel* const pixels, int width, in
             delete mDepthData;
         mDepthData = new GLuint[width * height];
     }
+    // aktuelle Textur festlegen
     glBindTexture(GL_TEXTURE_2D, mDepthTextureHandle);
+    // 16-Bit-Werte des Tiefenbilds in aktuelle Textur kopieren
     glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, width, height, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT, pixels);
+    // Tiefenwerte per GL-Shader in RGBA-Bild konvertieren
     mDepthShaderProgram->bind();
     mDepthShaderProgram->setUniformValue("uNearThreshold", (GLfloat)mNearThreshold);
     mDepthShaderProgram->setUniformValue("uFarThreshold", (GLfloat)mFarThreshold);
+    // Framebufferobjekt als Ziel für Zeichenbefehle festlegen
     mDepthFBO->bind();
+    // Fläche zeichnen
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    // GL-Framebuffer nach mDepthData (RGBA) kopieren
     glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, mDepthData);
     mDepthFBO->release();
-    QImage image((uchar*)mDepthData, width, height, QImage::Format_RGB32);
-    emit depthFrameReady(image);
+    // aus RGBA-Daten ein QImage produzieren und verschicken
+    emit depthFrameReady(QImage((uchar*)mDepthData, width, height, QImage::Format_RGB32));
 
+    // RGBA-Daten in aktuelle Textur kopieren
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, mDepthData);
+
+    // Zustande der GL-Engine von Beginn dieser Methode wiederherstellen
     glPopAttrib();
 }
 
@@ -135,11 +147,18 @@ void ThreeDWidget::setThresholds(int nearThreshold, int farThreshold)
 {
     mNearThreshold = nearThreshold;
     mFarThreshold = farThreshold;
+    updateGL();
 }
 
 
 void ThreeDWidget::initializeGL(void)
 {
+    glGenTextures(1, &mDepthTextureHandle);
+    glBindTexture(GL_TEXTURE_2D, mDepthTextureHandle);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
     glGenTextures(1, &mVideoTextureHandle);
     glBindTexture(GL_TEXTURE_2D, mVideoTextureHandle);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -147,17 +166,8 @@ void ThreeDWidget::initializeGL(void)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
 
-    glGenTextures(1, &mDepthTextureHandle);
-    glBindTexture(GL_TEXTURE_2D, mDepthTextureHandle);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
-
-    // glEnable(GL_DEPTH_TEST);
     QGLShader* vshader;
     QGLShader* fshader;
-
     vshader = new QGLShader(QGLShader::Vertex, this);
     vshader->compileSourceFile(":/shaders/depthvertexshader.glsl");
     fshader = new QGLShader(QGLShader::Fragment, this);

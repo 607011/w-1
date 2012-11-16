@@ -257,10 +257,37 @@
          <string>Image</string>
         </property>
         <layout class="QGridLayout" name="gridLayout_4">
+         <item row="1" column="0">
+          <widget class="QLabel" name="label_10">
+           <property name="text">
+            <string>Sharpening</string>
+           </property>
+          </widget>
+         </item>
          <item row="2" column="0">
           <widget class="QLabel" name="label_11">
            <property name="text">
             <string>fps</string>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="1">
+          <widget class="QDoubleSpinBox" name="gammaSpinBox">
+           <property name="maximum">
+            <double>3.000000000000000</double>
+           </property>
+           <property name="singleStep">
+            <double>0.100000000000000</double>
+           </property>
+           <property name="value">
+            <double>1.000000000000000</double>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="0">
+          <widget class="QLabel" name="label_9">
+           <property name="text">
+            <string>Gamma correction</string>
            </property>
           </widget>
          </item>
@@ -277,20 +304,6 @@
            </property>
           </widget>
          </item>
-         <item row="1" column="0">
-          <widget class="QLabel" name="label_10">
-           <property name="text">
-            <string>Sharpening</string>
-           </property>
-          </widget>
-         </item>
-         <item row="0" column="0">
-          <widget class="QLabel" name="label_9">
-           <property name="text">
-            <string>Gamma correction</string>
-           </property>
-          </widget>
-         </item>
          <item row="1" column="1">
           <widget class="QSlider" name="sharpeningSlider">
            <property name="sizePolicy">
@@ -304,19 +317,6 @@
            </property>
            <property name="orientation">
             <enum>Qt::Horizontal</enum>
-           </property>
-          </widget>
-         </item>
-         <item row="0" column="1">
-          <widget class="QDoubleSpinBox" name="gammaSpinBox">
-           <property name="maximum">
-            <double>3.000000000000000</double>
-           </property>
-           <property name="singleStep">
-            <double>0.100000000000000</double>
-           </property>
-           <property name="value">
-            <double>1.000000000000000</double>
            </property>
           </widget>
          </item>

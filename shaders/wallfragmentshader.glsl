@@ -17,5 +17,6 @@ void main(void)
         vec4 c = texture2D(uVideoTexture, vTexCoord.st + uOffset[i] / uSize);
         color += c * uSharpen[i];
     }
-    gl_FragColor.rgb = pow(color.rgb, vec3(1.0 / uGamma));
+    color.rgb = pow(color.rgb, vec3(1.0 / uGamma)) - texture2D(uDepthTexture, vTexCoord.st).rgb;
+    gl_FragColor.rgb = color.rgb;
 }
