@@ -2,21 +2,33 @@
 // All rights reserved.
 
 varying mediump vec4 vTexCoord;
-uniform sampler2D uVideoTexture;
-uniform sampler2D uDepthTexture;
 uniform float uGamma;
 uniform vec2 uOffset[9];
 uniform float uSharpen[9];
 uniform vec2 uSize;
+uniform sampler2D uDepthTexture;
+uniform sampler2D uVideoTexture;
 
 
 void main(void)
 {
-    vec4 color = vec4(0.0);
-    for (int i = 0; i < 9; ++i) {
-        vec4 c = texture2D(uVideoTexture, vTexCoord.st + uOffset[i] / uSize);
-        color += c * uSharpen[i];
+    vec3 color = vec3(0.0);
+    vec3 invisible = vec3(0.0);
+    if (all(equal(texture2D(uDepthTexture, vTexCoord.st).bgr, vec3(0.0, 251.0 / 255.0, 190.0 / 255.0)))) {
+        color = invisible;
     }
-    color.rgb = pow(color.rgb, vec3(1.0 / uGamma)) - texture2D(uDepthTexture, vTexCoord.st).rgb;
-    gl_FragColor.rgb = color.rgb;
+    else if (all(equal(texture2D(uDepthTexture, vTexCoord.st).bgr, vec3(251.0 / 255.0, 85.0 / 255.0, 5.0 / 255.0)))) {
+        color = invisible;
+    }
+    else if (all(equal(texture2D(uDepthTexture, vTexCoord.st).bgr, vec3(8.0 / 255.0, 98.0 / 255.0, 250.0 / 255.0)))) {
+        color = invisible;
+    }
+    else {
+        for (int i = 0; i < 9; ++i) {
+            vec3 c = texture2D(uVideoTexture, vTexCoord.st + uOffset[i] / uSize).rgb;
+            color += c * uSharpen[i];
+        }
+        color = pow(color, vec3(1.0 / uGamma));
+    }
+    gl_FragColor = vec4(color, 1.0);
 }

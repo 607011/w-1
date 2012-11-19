@@ -39,4 +39,5 @@ OTHER_FILES += \
     shaders/wallfragmentshader.glsl \
     shaders/wallvertexshader.glsl \
     shaders/depthvertexshader.glsl \
-    shaders/depthfragmentshader.glsl
+    shaders/depthfragmentshader.glsl \
+    shaders/noise.glsl
