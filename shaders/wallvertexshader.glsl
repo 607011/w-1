@@ -2,9 +2,9 @@
 // All rights reserved.
 
 attribute highp vec4 aVertex;
-attribute mediump vec4 aTexCoord;
-varying mediump vec4 vTexCoord;
-uniform mediump mat4 uMatrix;
+attribute highp  vec4 aTexCoord;
+varying highp  vec4 vTexCoord;
+uniform highp  mat4 uMatrix;
 
 void main(void)
 {

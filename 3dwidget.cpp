@@ -124,7 +124,12 @@ void ThreeDWidget::setDepthFrame(const XnDepthPixel* const pixels, int width, in
     // 16-Bit-Werte des Tiefenbilds in aktuelle Textur kopieren
     glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, width, height, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT, pixels);
     // Tiefenwerte per GL-Shader in RGBA-Bild konvertieren
+    QMatrix4x4 m;
+    m.perspective((mFOVx+mFOVy) / 2, qreal(width) / height, 0.48, 12.0);
+    m.translate(0.0f, 0.0f, mZoom);
+    m.rotate(DefaultXRot, 1.0f, 0.0f, 0.0f);
     mDepthShaderProgram->bind();
+    mDepthShaderProgram->setUniformValue("uMatrix", m);
     mDepthShaderProgram->setUniformValue("uNearThreshold", (GLfloat)mNearThreshold);
     mDepthShaderProgram->setUniformValue("uFarThreshold", (GLfloat)mFarThreshold);
     // Framebufferobjekt als Ziel für Zeichenbefehle festlegen
@@ -135,7 +140,8 @@ void ThreeDWidget::setDepthFrame(const XnDepthPixel* const pixels, int width, in
     glReadPixels(0, 0, width, height, GL_BGRA, GL_UNSIGNED_BYTE, mDepthData);
     mDepthFBO->release();
     // aus RGBA-Daten ein QImage produzieren und verschicken
-    emit depthFrameReady(QImage((uchar*)mDepthData, width, height, QImage::Format_RGB32));
+    QImage depthImage((uchar*)mDepthData, width, height, QImage::Format_RGB32);
+    emit depthFrameReady(depthImage);
 
     // RGBA-Daten in aktuelle Textur kopieren
     glBindTexture(GL_TEXTURE_2D, mDepthTextureHandle);
@@ -177,30 +183,22 @@ void ThreeDWidget::initializeGL(void)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
 
-    QGLShader* vshader;
-    QGLShader* fshader;
-
     qDebug() << "Making mDepthShaderProgram ...";
-    vshader = new QGLShader(QGLShader::Vertex, this);
-    vshader->compileSourceFile(":/shaders/depthvertexshader.glsl");
-    fshader = new QGLShader(QGLShader::Fragment, this);
-    fshader->compileSourceFile(":/shaders/depthfragmentshader.glsl");
-    mDepthShaderProgram->addShader(vshader);
-    mDepthShaderProgram->addShader(fshader);
+    mDepthShaderProgram->addShaderFromSourceFile(QGLShader::Vertex, ":/shaders/depthvertexshader.glsl");
+    mDepthShaderProgram->addShaderFromSourceFile(QGLShader::Fragment, ":/shaders/depthfragmentshader.glsl");
     mDepthShaderProgram->bindAttributeLocation("aVertex", PROGRAM_VERTEX_ATTRIBUTE);
     mDepthShaderProgram->bindAttributeLocation("aTexCoord", PROGRAM_TEXCOORD_ATTRIBUTE);
+    mDepthShaderProgram->enableAttributeArray(PROGRAM_VERTEX_ATTRIBUTE);
+    mDepthShaderProgram->enableAttributeArray(PROGRAM_TEXCOORD_ATTRIBUTE);
+    mDepthShaderProgram->setAttributeArray(PROGRAM_VERTEX_ATTRIBUTE, mVertices);
+    mDepthShaderProgram->setAttributeArray(PROGRAM_TEXCOORD_ATTRIBUTE, mTexCoords);
     mDepthShaderProgram->link();
     mDepthShaderProgram->bind();
-    qDebug() << mDepthShaderProgram->uniformLocation("uDepthTexture");
     mDepthShaderProgram->setUniformValue("uDepthTexture", DEPTH_TEXTURE);
 
     qDebug() << "Making mWallShaderProgram ...";
-    vshader = new QGLShader(QGLShader::Vertex, this);
-    vshader->compileSourceFile(":/shaders/wallvertexshader.glsl");
-    fshader = new QGLShader(QGLShader::Fragment, this);
-    fshader->compileSourceFile(":/shaders/wallfragmentshader.glsl");
-    mWallShaderProgram->addShader(vshader);
-    mWallShaderProgram->addShader(fshader);
+    mWallShaderProgram->addShaderFromSourceFile(QGLShader::Vertex, ":/shaders/wallvertexshader.glsl");
+    mWallShaderProgram->addShaderFromSourceFile(QGLShader::Fragment, ":/shaders/wallfragmentshader.glsl");
     mWallShaderProgram->bindAttributeLocation("aVertex", PROGRAM_VERTEX_ATTRIBUTE);
     mWallShaderProgram->bindAttributeLocation("aTexCoord", PROGRAM_TEXCOORD_ATTRIBUTE);
     mWallShaderProgram->enableAttributeArray(PROGRAM_VERTEX_ATTRIBUTE);
@@ -209,12 +207,9 @@ void ThreeDWidget::initializeGL(void)
     mWallShaderProgram->setAttributeArray(PROGRAM_TEXCOORD_ATTRIBUTE, mTexCoords);
     mWallShaderProgram->link();
     mWallShaderProgram->bind();
-    qDebug() << mWallShaderProgram->uniformLocation("uVideoTexture");
-    qDebug() << mWallShaderProgram->uniformLocation("uDepthTexture");
     mWallShaderProgram->setUniformValue("uVideoTexture", VIDEO_TEXTURE);
     mWallShaderProgram->setUniformValue("uDepthTexture", DEPTH_TEXTURE);
     mWallShaderProgram->setUniformValueArray("uOffset", mOffset, 9);
-
 }
 
 
@@ -222,6 +217,7 @@ void ThreeDWidget::paintGL(void)
 {
     glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
     QMatrix4x4 m;
     m.perspective((mFOVx + mFOVy) / 2, qreal(width()) / height(), 0.48, 12.0);
     m.translate(0.0f, 0.0f, mZoom);

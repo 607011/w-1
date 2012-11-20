@@ -137,15 +137,15 @@ void MainWindow::timerEvent(QTimerEvent* e)
 {
     if (e->timerId() == mFrameTimerId) {
         XnStatus rc;
+        mDepthGenerator.GetAlternativeViewPointCap().SetViewPoint(mVideoGenerator);
         rc = mContext.WaitAndUpdateAll();
         if (rc != XN_STATUS_OK) {
             qWarning() << "Failed updating data:" << xnGetStatusString(rc);
             return;
         }
-        mDepthGenerator.GetAlternativeViewPointCap().SetViewPoint(mVideoGenerator);
         m3DWidget->setThresholds(ui->nearClippingSpinBox->value(), ui->farClippingSpinBox->value());
-        m3DWidget->setVideoFrame(mVideoMetaData.ImageMap()., mVideoMetaData.XRes(), mVideoMetaData.YRes());
-        m3DWidget->setDepthFrame(mDepthMetaData.DepthMap(), mDepthMetaData.XRes(), mDepthMetaData.YRes());
+        m3DWidget->setVideoFrame(mVideoGenerator.GetImageMap(), mVideoMetaData.XRes(), mVideoMetaData.YRes());
+        m3DWidget->setDepthFrame(mDepthGenerator.GetDepthMap(), mDepthMetaData.XRes(), mDepthMetaData.YRes());
         if (++mFrameCount > 10) {
             ui->fpsLineEdit->setText(QString("%1").arg(1e3 * mFrameCount / mT0.elapsed(), 0, 'f', 3));
             mT0.start();
