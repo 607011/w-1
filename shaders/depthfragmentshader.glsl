@@ -8,8 +8,7 @@ uniform float uFarThreshold;
 
 void main(void)
 {
-    vec2 RGB = texture2D(uDepthTexture, vTexCoord.st).rg;
-    float depth = RGB.r * 65536.0 + RGB.g * 256.0;
+    float depth = dot(texture2D(uDepthTexture, vTexCoord.st).rg, vec2(65536.0, 256.0));
     vec3 color;
     if (depth == 0.0) {
         color = vec3(0.0, 251.0 / 255.0, 190.0 / 255.0);

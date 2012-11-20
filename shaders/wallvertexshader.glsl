@@ -1,13 +1,13 @@
 // Copyright (c) 2012 Oliver Lau <oliver@von-und-fuer-lau.de>
 // All rights reserved.
 
-attribute highp vec4 aVertex;
-attribute highp  vec4 aTexCoord;
-varying highp  vec4 vTexCoord;
-uniform highp  mat4 uMatrix;
+attribute mediump vec4 aVertex;
+attribute mediump vec4 aTexCoord;
+varying mediump vec4 vTexCoord;
+uniform mediump mat4 uMatrix;
 
 void main(void)
 {
-    gl_Position = uMatrix * aVertex;
     vTexCoord = aTexCoord;
+    gl_Position = uMatrix * aVertex;
 }

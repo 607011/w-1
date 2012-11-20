@@ -10,6 +10,5 @@ void main(void)
 {
     vTexCoord.x = aTexCoord.x;
     vTexCoord.y = 1.0 - aTexCoord.y;
-    vTexCoord.z = aTexCoord.z;
     gl_Position = uMatrix * aVertex;
 }
