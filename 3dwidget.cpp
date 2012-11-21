@@ -4,10 +4,13 @@
 #include "3dwidget.h"
 
 #include <QColor>
+#include <QFile>
+#include <QTextStream>
 #include <QImage>
 #include <QPixmap>
 #include <QTimer>
 #include <QDateTime>
+#include <QMutexLocker>
 #include <QtCore/QDebug>
 #include <QMatrix4x4>
 #include <QGLShader>
@@ -68,7 +71,8 @@ ThreeDWidget::ThreeDWidget(QWidget* parent)
     , mImageFBO(NULL)
     , mImageDupFBO(NULL)
     , mDepthData(NULL)
-    , mNeighborhoodSize(1)
+    , mHaloRadius(1)
+    , mHalo(NULL)
     , mDepthShaderProgram(new QGLShaderProgram(this))
     , mMixShaderProgram(new QGLShaderProgram(this))
     , mWallShaderProgram(new QGLShaderProgram(this))
@@ -89,6 +93,7 @@ ThreeDWidget::ThreeDWidget(QWidget* parent)
 ThreeDWidget::~ThreeDWidget()
 {
     delete mWallShaderProgram;
+    delete mMixShaderProgram;
     delete mDepthShaderProgram;
     if (mDepthFBO)
         delete mDepthFBO;
@@ -98,6 +103,8 @@ ThreeDWidget::~ThreeDWidget()
         delete mImageDupFBO;
     if (mDepthData)
         delete [] mDepthData;
+    if (mHalo)
+        delete [] mHalo;
 }
 
 
@@ -146,6 +153,7 @@ void ThreeDWidget::setVideoFrame(const XnUInt8* const pixels, int width, int hei
 
 void ThreeDWidget::setDepthFrame(const XnDepthPixel* const pixels, int width, int height)
 {
+    QMutexLocker locker(&mDepthShaderMutex);
     // alle Zustände der GL-Engine sichern
     glPushAttrib(GL_ALL_ATTRIB_BITS);
     if ((width != int(mDepthFrameSize.x()) || height != int(mDepthFrameSize.y()))) {
@@ -171,7 +179,6 @@ void ThreeDWidget::setDepthFrame(const XnDepthPixel* const pixels, int width, in
     mDepthShaderProgram->setUniformValue("uMatrix", m);
     mDepthShaderProgram->setUniformValue("uNearThreshold", (GLfloat)mNearThreshold);
     mDepthShaderProgram->setUniformValue("uFarThreshold", (GLfloat)mFarThreshold);
-    mDepthShaderProgram->setUniformValue("uNeighborhoodSize", (GLfloat)mNeighborhoodSize);
     mDepthShaderProgram->setUniformValue("uSize", mVideoFrameSize);
     // Framebufferobjekt als Ziel für Zeichenbefehle festlegen
     mDepthFBO->bind();
@@ -198,6 +205,75 @@ void ThreeDWidget::setThresholds(int nearThreshold, int farThreshold)
     mNearThreshold = nearThreshold;
     mFarThreshold = farThreshold;
     updateGL();
+}
+
+
+void ThreeDWidget::makeDepthShader(void)
+{
+    QMutexLocker locker(&mDepthShaderMutex);
+    qDebug() << "Making mDepthShaderProgram w/ halo radius of" << mHaloRadius << "...";
+    if (mHalo)
+        delete [] mHalo;
+    const int haloArraySize = 2 * mHaloRadius * 2 * mHaloRadius;
+    mHalo = new QVector2D[haloArraySize];
+    int i = 0;
+    for (int x = -mHaloRadius; x < mHaloRadius; ++x)
+        for (int y = -mHaloRadius; y < mHaloRadius; ++y)
+            mHalo[i++] = QVector2D(x, y);
+    QFile file(":/shaders/depthfragmentshader.glsl");
+    file.open(QIODevice::ReadOnly | QIODevice::Text);
+    QTextStream in(&file);
+    const QString& shaderSource = in.readAll().arg(haloArraySize);
+    mDepthShaderProgram->removeAllShaders();
+    mDepthShaderProgram->addShaderFromSourceCode(QGLShader::Fragment, shaderSource);
+    mDepthShaderProgram->addShaderFromSourceFile(QGLShader::Vertex, ":/shaders/depthvertexshader.glsl");
+    mDepthShaderProgram->bindAttributeLocation("aVertex", PROGRAM_VERTEX_ATTRIBUTE);
+    mDepthShaderProgram->bindAttributeLocation("aTexCoord", PROGRAM_TEXCOORD_ATTRIBUTE);
+    mDepthShaderProgram->enableAttributeArray(PROGRAM_VERTEX_ATTRIBUTE);
+    mDepthShaderProgram->enableAttributeArray(PROGRAM_TEXCOORD_ATTRIBUTE);
+    mDepthShaderProgram->setAttributeArray(PROGRAM_VERTEX_ATTRIBUTE, mVertices);
+    mDepthShaderProgram->setAttributeArray(PROGRAM_TEXCOORD_ATTRIBUTE, mTexCoords);
+    mDepthShaderProgram->link();
+    mDepthShaderProgram->bind();
+    mDepthShaderProgram->setUniformValue("uDepthTexture", 1);
+    mDepthShaderProgram->setUniformValueArray("uHalo", mHalo, haloArraySize);
+}
+
+
+void ThreeDWidget::makeMixShader(void)
+{
+    qDebug() << "Making mMixShaderProgram ...";
+    mMixShaderProgram->addShaderFromSourceFile(QGLShader::Vertex, ":/shaders/mixvertexshader.glsl");
+    mMixShaderProgram->addShaderFromSourceFile(QGLShader::Fragment, ":/shaders/mixfragmentshader.glsl");
+    mMixShaderProgram->bindAttributeLocation("aVertex", PROGRAM_VERTEX_ATTRIBUTE);
+    mMixShaderProgram->bindAttributeLocation("aTexCoord", PROGRAM_TEXCOORD_ATTRIBUTE);
+    mMixShaderProgram->enableAttributeArray(PROGRAM_VERTEX_ATTRIBUTE);
+    mMixShaderProgram->enableAttributeArray(PROGRAM_TEXCOORD_ATTRIBUTE);
+    mMixShaderProgram->setAttributeArray(PROGRAM_VERTEX_ATTRIBUTE, mVertices);
+    mMixShaderProgram->setAttributeArray(PROGRAM_TEXCOORD_ATTRIBUTE, mTexCoords);
+    mMixShaderProgram->link();
+    mMixShaderProgram->bind();
+    mMixShaderProgram->setUniformValue("uVideoTexture", 0);
+    mMixShaderProgram->setUniformValue("uDepthTexture", 1);
+    mMixShaderProgram->setUniformValue("uImageTexture", 2);
+    mMixShaderProgram->setUniformValueArray("uOffset", mOffset, 9);
+}
+
+
+void ThreeDWidget::makeWallShader(void)
+{
+    qDebug() << "Making mWallShaderProgram ...";
+    mWallShaderProgram->addShaderFromSourceFile(QGLShader::Vertex, ":/shaders/wallvertexshader.glsl");
+    mWallShaderProgram->addShaderFromSourceFile(QGLShader::Fragment, ":/shaders/wallfragmentshader.glsl");
+    mWallShaderProgram->bindAttributeLocation("aVertex", PROGRAM_VERTEX_ATTRIBUTE);
+    mWallShaderProgram->bindAttributeLocation("aTexCoord", PROGRAM_TEXCOORD_ATTRIBUTE);
+    mWallShaderProgram->enableAttributeArray(PROGRAM_VERTEX_ATTRIBUTE);
+    mWallShaderProgram->enableAttributeArray(PROGRAM_TEXCOORD_ATTRIBUTE);
+    mWallShaderProgram->setAttributeArray(PROGRAM_VERTEX_ATTRIBUTE, mVertices);
+    mWallShaderProgram->setAttributeArray(PROGRAM_TEXCOORD_ATTRIBUTE, mTexCoords);
+    mWallShaderProgram->link();
+    mWallShaderProgram->bind();
+    mWallShaderProgram->setUniformValue("uImageTexture", 0);
 }
 
 
@@ -229,47 +305,9 @@ void ThreeDWidget::initializeGL(void)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
 
-    qDebug() << "Making mDepthShaderProgram ...";
-    mDepthShaderProgram->addShaderFromSourceFile(QGLShader::Vertex, ":/shaders/depthvertexshader.glsl");
-    mDepthShaderProgram->addShaderFromSourceFile(QGLShader::Fragment, ":/shaders/depthfragmentshader.glsl");
-    mDepthShaderProgram->bindAttributeLocation("aVertex", PROGRAM_VERTEX_ATTRIBUTE);
-    mDepthShaderProgram->bindAttributeLocation("aTexCoord", PROGRAM_TEXCOORD_ATTRIBUTE);
-    mDepthShaderProgram->enableAttributeArray(PROGRAM_VERTEX_ATTRIBUTE);
-    mDepthShaderProgram->enableAttributeArray(PROGRAM_TEXCOORD_ATTRIBUTE);
-    mDepthShaderProgram->setAttributeArray(PROGRAM_VERTEX_ATTRIBUTE, mVertices);
-    mDepthShaderProgram->setAttributeArray(PROGRAM_TEXCOORD_ATTRIBUTE, mTexCoords);
-    mDepthShaderProgram->link();
-    mDepthShaderProgram->bind();
-    mDepthShaderProgram->setUniformValue("uDepthTexture", 1);
-
-    qDebug() << "Making mMixShaderProgram ...";
-    mMixShaderProgram->addShaderFromSourceFile(QGLShader::Vertex, ":/shaders/mixvertexshader.glsl");
-    mMixShaderProgram->addShaderFromSourceFile(QGLShader::Fragment, ":/shaders/mixfragmentshader.glsl");
-    mMixShaderProgram->bindAttributeLocation("aVertex", PROGRAM_VERTEX_ATTRIBUTE);
-    mMixShaderProgram->bindAttributeLocation("aTexCoord", PROGRAM_TEXCOORD_ATTRIBUTE);
-    mMixShaderProgram->enableAttributeArray(PROGRAM_VERTEX_ATTRIBUTE);
-    mMixShaderProgram->enableAttributeArray(PROGRAM_TEXCOORD_ATTRIBUTE);
-    mMixShaderProgram->setAttributeArray(PROGRAM_VERTEX_ATTRIBUTE, mVertices);
-    mMixShaderProgram->setAttributeArray(PROGRAM_TEXCOORD_ATTRIBUTE, mTexCoords);
-    mMixShaderProgram->link();
-    mMixShaderProgram->bind();
-    mMixShaderProgram->setUniformValue("uVideoTexture", 0);
-    mMixShaderProgram->setUniformValue("uDepthTexture", 1);
-    mMixShaderProgram->setUniformValue("uImageTexture", 2);
-    mMixShaderProgram->setUniformValueArray("uOffset", mOffset, 9);
-
-    qDebug() << "Making mWallShaderProgram ...";
-    mWallShaderProgram->addShaderFromSourceFile(QGLShader::Vertex, ":/shaders/wallvertexshader.glsl");
-    mWallShaderProgram->addShaderFromSourceFile(QGLShader::Fragment, ":/shaders/wallfragmentshader.glsl");
-    mWallShaderProgram->bindAttributeLocation("aVertex", PROGRAM_VERTEX_ATTRIBUTE);
-    mWallShaderProgram->bindAttributeLocation("aTexCoord", PROGRAM_TEXCOORD_ATTRIBUTE);
-    mWallShaderProgram->enableAttributeArray(PROGRAM_VERTEX_ATTRIBUTE);
-    mWallShaderProgram->enableAttributeArray(PROGRAM_TEXCOORD_ATTRIBUTE);
-    mWallShaderProgram->setAttributeArray(PROGRAM_VERTEX_ATTRIBUTE, mVertices);
-    mWallShaderProgram->setAttributeArray(PROGRAM_TEXCOORD_ATTRIBUTE, mTexCoords);
-    mWallShaderProgram->link();
-    mWallShaderProgram->bind();
-    mWallShaderProgram->setUniformValue("uImageTexture", 0);
+    makeDepthShader();
+    makeMixShader();
+    makeWallShader();
 }
 
 
@@ -450,7 +488,6 @@ void ThreeDWidget::setSaturation(GLfloat saturation)
 void ThreeDWidget::setGamma(double gamma)
 {
     mGamma = (GLfloat)gamma;
-    qDebug() << "mGamma =" << mGamma;
     updateGL();
 }
 
@@ -475,7 +512,8 @@ void ThreeDWidget::setSharpening(int percent)
 }
 
 
-void ThreeDWidget::setNeighborhoodSize(int s)
+void ThreeDWidget::setHaloRadius(int radius)
 {
-    mNeighborhoodSize = (GLuint)s;
+    mHaloRadius = radius;
+    makeDepthShader();
 }

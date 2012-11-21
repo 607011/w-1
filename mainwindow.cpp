@@ -33,7 +33,7 @@ MainWindow::MainWindow(QWidget* parent)
     QObject::connect(ui->gammaSpinBox, SIGNAL(valueChanged(double)), m3DWidget, SLOT(setGamma(double)));
     QObject::connect(ui->filterComboBox, SIGNAL(currentIndexChanged(int)), m3DWidget, SLOT(setFilter(int)));
     QObject::connect(ui->sharpeningSlider, SIGNAL(valueChanged(int)), m3DWidget, SLOT(setSharpening(int)));
-    QObject::connect(ui->neighborhoodSizeSpinBox, SIGNAL(valueChanged(int)), m3DWidget, SLOT(setNeighborhoodSize(int)));
+    QObject::connect(ui->haloRadiusSpinBox, SIGNAL(valueChanged(int)), m3DWidget, SLOT(setHaloRadius(int)));
 
     QObject::connect(ui->saturationSlider, SIGNAL(valueChanged(int)), SLOT(saturationChanged(int)));
     QObject::connect(ui->contrastSlider, SIGNAL(valueChanged(int)), SLOT(contrastChanged(int)));
@@ -62,7 +62,7 @@ void MainWindow::restoreSettings(void)
     ui->saturationSlider->setValue(settings.value("Options/saturation", 100).toInt());
     ui->contrastSlider->setValue(settings.value("Options/contrast", 100).toInt());
     ui->sharpeningSlider->setValue(settings.value("Options/sharpening", 0).toInt());
-    ui->neighborhoodSizeSpinBox->setValue(settings.value("Options/neighborhoodSize", 0).toInt());
+    ui->haloRadiusSpinBox->setValue(settings.value("Options/haloRadius", 5).toInt());
     ui->tiltSpinBox->setValue(settings.value("Sensor/tilt", 0).toInt());
 }
 
@@ -78,7 +78,7 @@ void MainWindow::saveSettings(void)
     settings.setValue("Options/saturation", ui->saturationSlider->value());
     settings.setValue("Options/contrast", ui->contrastSlider->value());
     settings.setValue("Options/sharpening", ui->sharpeningSlider->value());
-    settings.setValue("Options/neighborhoodSize", ui->neighborhoodSizeSpinBox->value());
+    settings.setValue("Options/haloRadius", ui->haloRadiusSpinBox->value());
     settings.setValue("Sensor/tilt", ui->tiltSpinBox->value());
 }
 

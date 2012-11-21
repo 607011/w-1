@@ -361,20 +361,20 @@
          <item row="7" column="0">
           <widget class="QLabel" name="label_15">
            <property name="text">
-            <string>Fill hole radius</string>
+            <string>Halo radius</string>
            </property>
           </widget>
          </item>
          <item row="7" column="1">
-          <widget class="QSpinBox" name="neighborhoodSizeSpinBox">
+          <widget class="QSpinBox" name="haloRadiusSpinBox">
            <property name="minimum">
-            <number>0</number>
+            <number>1</number>
            </property>
            <property name="maximum">
-            <number>40</number>
+            <number>11</number>
            </property>
            <property name="value">
-            <number>5</number>
+            <number>1</number>
            </property>
           </widget>
          </item>

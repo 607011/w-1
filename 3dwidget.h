@@ -12,6 +12,7 @@
 #include <QPoint>
 #include <QVector2D>
 #include <QVector3D>
+#include <QMutex>
 #include <QGLWidget>
 #include <QGLFramebufferObject>
 #include <QGLShaderProgram>
@@ -58,7 +59,7 @@ public slots:
     void setFilter(int);
     void setGamma(double);
     void setSharpening(int percent);
-    void setNeighborhoodSize(int);
+    void setHaloRadius(int);
 
 private: // variables
     static const QVector3D mVertices[4];
@@ -80,7 +81,8 @@ private: // variables
     QGLFramebufferObject* mImageFBO;
     QGLFramebufferObject* mImageDupFBO;
     GLuint* mDepthData;
-    GLuint mNeighborhoodSize;
+    GLint mHaloRadius;
+    QVector2D* mHalo;
     QGLShaderProgram* mDepthShaderProgram;
     QGLShaderProgram* mMixShaderProgram;
     QGLShaderProgram* mWallShaderProgram;
@@ -95,6 +97,7 @@ private: // variables
     GLfloat mFOVy;
     int mNearThreshold;
     int mFarThreshold;
+    QMutex mDepthShaderMutex;
 
 protected: // methods
     void initializeGL(void);
@@ -107,7 +110,9 @@ protected: // methods
     void keyPressEvent(QKeyEvent*);
 
 private: // methods
-
+    void makeDepthShader(void);
+    void makeMixShader(void);
+    void makeWallShader(void);
 };
 
 #endif // __3DWIDGET_H_
