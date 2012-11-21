@@ -384,7 +384,7 @@
             <widget class="QSlider" name="saturationSlider">
              <property name="sizePolicy">
               <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-               <horstretch>0</horstretch>
+               <horstretch>2</horstretch>
                <verstretch>0</verstretch>
               </sizepolicy>
              </property>
@@ -404,8 +404,17 @@
            </item>
            <item>
             <widget class="QLabel" name="saturationLabel">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+               <horstretch>1</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
              <property name="text">
-              <string/>
+              <string>%</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
              </property>
             </widget>
            </item>
@@ -417,7 +426,7 @@
             <widget class="QSlider" name="contrastSlider">
              <property name="sizePolicy">
               <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-               <horstretch>0</horstretch>
+               <horstretch>2</horstretch>
                <verstretch>0</verstretch>
               </sizepolicy>
              </property>
@@ -437,8 +446,17 @@
            </item>
            <item>
             <widget class="QLabel" name="contrastLabel">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+               <horstretch>1</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
              <property name="text">
-              <string/>
+              <string>%</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
              </property>
             </widget>
            </item>
@@ -479,6 +497,23 @@
   <widget class="QStatusBar" name="statusBar"/>
  </widget>
  <layoutdefault spacing="6" margin="11"/>
+ <tabstops>
+  <tabstop>nearClippingSpinBox</tabstop>
+  <tabstop>farClippingSpinBox</tabstop>
+  <tabstop>tiltSpinBox</tabstop>
+  <tabstop>gammaSpinBox</tabstop>
+  <tabstop>sharpeningSlider</tabstop>
+  <tabstop>saturationSlider</tabstop>
+  <tabstop>contrastSlider</tabstop>
+  <tabstop>filterComboBox</tabstop>
+  <tabstop>haloRadiusSpinBox</tabstop>
+  <tabstop>bLineEdit</tabstop>
+  <tabstop>aLineEdit</tabstop>
+  <tabstop>x_LineEdit</tabstop>
+  <tabstop>z_LineEdit</tabstop>
+  <tabstop>zCenterLineEdit</tabstop>
+  <tabstop>fpsLineEdit</tabstop>
+ </tabstops>
  <resources/>
  <connections/>
 </ui>
