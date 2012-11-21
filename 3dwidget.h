@@ -53,6 +53,9 @@ signals:
     void depthFrameReady(const QImage&);
 
 public slots:
+    void setFilter(int);
+    void setContrast(int);
+    void setSaturation(int);
     void setGamma(double);
     void setSharpening(int percent);
 
@@ -79,6 +82,9 @@ private: // variables
     QGLShaderProgram* mDepthShaderProgram;
     QGLShaderProgram* mMixShaderProgram;
     QGLShaderProgram* mWallShaderProgram;
+    GLint mFilter;
+    GLfloat mContrast;
+    GLfloat mSaturation;
     GLfloat mGamma;
     QVector2D mVideoFrameSize;
     QVector2D mDepthFrameSize;

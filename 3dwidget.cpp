@@ -71,6 +71,9 @@ ThreeDWidget::ThreeDWidget(QWidget* parent)
     , mDepthShaderProgram(new QGLShaderProgram(this))
     , mMixShaderProgram(new QGLShaderProgram(this))
     , mWallShaderProgram(new QGLShaderProgram(this))
+    , mFilter(0)
+    , mContrast(1.0f)
+    , mSaturation(1.0f)
     , mGamma(2.1f)
     , mNearThreshold(0)
     , mFarThreshold(0xffffU)
@@ -124,6 +127,8 @@ void ThreeDWidget::setVideoFrame(const XnUInt8* const pixels, int width, int hei
     mMixShaderProgram->bind();
     mMixShaderProgram->setUniformValue("uMatrix", m);
     mMixShaderProgram->setUniformValue("uGamma", mGamma);
+    mMixShaderProgram->setUniformValue("uContrast", mContrast);
+    mMixShaderProgram->setUniformValue("uSaturation", mSaturation);
     mMixShaderProgram->setUniformValue("uSize", mVideoFrameSize);
     mMixShaderProgram->setUniformValueArray("uSharpen", mSharpeningKernel, 9, 1);
     mImageDupFBO->bind();
@@ -202,6 +207,10 @@ void ThreeDWidget::initializeGL(void)
 
     glActiveTexture = (PFNGLACTIVETEXTUREPROC)wglGetProcAddress("glActiveTexture");
 
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_CULL_FACE);
+    glDisable(GL_TEXTURE_2D);
+
     glGenTextures(1, &mDepthTextureHandle);
     glBindTexture(GL_TEXTURE_2D, mDepthTextureHandle);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -275,6 +284,7 @@ void ThreeDWidget::paintGL(void)
     m.translate(mXTrans, mYTrans, mZTrans);
     mWallShaderProgram->bind();
     mWallShaderProgram->setUniformValue("uMatrix", m);
+    mWallShaderProgram->setUniformValue("uFilter", mFilter);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, mImageFBO->texture());
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
@@ -291,7 +301,7 @@ void ThreeDWidget::keyPressEvent(QKeyEvent* e)
 {
     const float dTrans = (e->modifiers() & Qt::ShiftModifier)? 0.05f : 0.5f;
     const float dRot = (e->modifiers() & Qt::ShiftModifier)? 0.1f : 1.0f;
-    switch(e->key()) {
+    switch (e->key()) {
     case Qt::Key_Left:
         mZRot -= dRot;
         updateGL();
@@ -414,9 +424,33 @@ void ThreeDWidget::setZoom(float zoom)
 }
 
 
-void ThreeDWidget::setGamma(double gradient)
+void ThreeDWidget::setFilter(int index)
 {
-    mGamma = (GLfloat)gradient;
+    mFilter = (GLint)index;
+    updateGL();
+}
+
+
+void ThreeDWidget::setContrast(int contrast)
+{
+    mContrast = 1e-2f * GLfloat(contrast);
+    qDebug() << "mContrast =" << mContrast;
+    updateGL();
+}
+
+
+void ThreeDWidget::setSaturation(int saturation)
+{
+    mSaturation = 1e-2f * GLfloat(saturation);
+    qDebug() << "mSaturation =" << mSaturation;
+    updateGL();
+}
+
+
+void ThreeDWidget::setGamma(double gamma)
+{
+    mGamma = (GLfloat)gamma;
+    qDebug() << "mGamma =" << mGamma;
     updateGL();
 }
 
