@@ -17,7 +17,7 @@ const vec2 DepthFactor = vec2(65536.0, 256.0);
 vec3 colorOf(in vec2 coord)
 {
     for (int i = 0; i < %1/* Platzhalter wird im C++-Code ersetzt */; ++i) {
-        vec2 neighbor = vTexCoord.st + uHalo[i] / uSize;
+        vec2 neighbor = coord + uHalo[i] / uSize;
         float neighborDepth = dot(texture2D(uDepthTexture, neighbor).rg, DepthFactor);
         if (neighborDepth == 0.0)
             return InvalidDepthColor;

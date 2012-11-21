@@ -65,7 +65,7 @@ ThreeDWidget::ThreeDWidget(QWidget* parent)
     , mYTrans(0)
     , mZTrans(0)
     , mZoom(DefaultZoom)
-    , mVideoTextureHandle(0)
+    , mActiveVideoTexture(0)
     , mDepthTextureHandle(0)
     , mDepthFBO(NULL)
     , mImageFBO(NULL)
@@ -122,8 +122,15 @@ void ThreeDWidget::setVideoFrame(const XnUInt8* const pixels, int width, int hei
         mImageDupFBO = new QGLFramebufferObject(width, height);
     }
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, mVideoTextureHandle);
+    int nextActiveVideoTexture = mActiveVideoTexture + 1;
+    if (nextActiveVideoTexture == MaxTextures)
+        nextActiveVideoTexture = 0;
+    glBindTexture(GL_TEXTURE_2D, mVideoTextureHandle[mActiveVideoTexture]);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, pixels);
+
+    glBindTexture(GL_TEXTURE_2D, mVideoTextureHandle[nextActiveVideoTexture]);
+    mActiveVideoTexture = nextActiveVideoTexture;
+
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, mDepthTextureHandle);
     glActiveTexture(GL_TEXTURE2);
@@ -167,10 +174,11 @@ void ThreeDWidget::setDepthFrame(const XnDepthPixel* const pixels, int width, in
         mDepthData = new GLuint[width * height];
     }
     // aktuelle Textur festlegen
-    glActiveTexture(GL_TEXTURE1);
+    glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, mDepthTextureHandle);
     // 16-Bit-Werte des Tiefenbilds in aktuelle Textur kopieren
     glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, width, height, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT, pixels);
+
     // Tiefenwerte per GL-Shader in RGBA-Bild konvertieren
     QMatrix4x4 m;
     m.ortho(-1.6f, +1.6f, +1.2f, -1.2f, 0.1f, 15.0f);
@@ -191,7 +199,6 @@ void ThreeDWidget::setDepthFrame(const XnDepthPixel* const pixels, int width, in
     emit depthFrameReady(QImage((uchar*)mDepthData, width, height, QImage::Format_RGB32));
 
     // RGBA-Daten in aktuelle Textur kopieren
-    glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, mDepthTextureHandle);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, mDepthData);
 
@@ -224,6 +231,7 @@ void ThreeDWidget::makeDepthShader(void)
     file.open(QIODevice::ReadOnly | QIODevice::Text);
     QTextStream in(&file);
     const QString& shaderSource = in.readAll().arg(haloArraySize);
+    qDebug() << shaderSource;
     mDepthShaderProgram->removeAllShaders();
     mDepthShaderProgram->addShaderFromSourceCode(QGLShader::Fragment, shaderSource);
     mDepthShaderProgram->addShaderFromSourceFile(QGLShader::Vertex, ":/shaders/depthvertexshader.glsl");
@@ -235,7 +243,7 @@ void ThreeDWidget::makeDepthShader(void)
     mDepthShaderProgram->setAttributeArray(PROGRAM_TEXCOORD_ATTRIBUTE, mTexCoords);
     mDepthShaderProgram->link();
     mDepthShaderProgram->bind();
-    mDepthShaderProgram->setUniformValue("uDepthTexture", 1);
+    mDepthShaderProgram->setUniformValue("uDepthTexture", 0);
     mDepthShaderProgram->setUniformValueArray("uHalo", mHalo, haloArraySize);
 }
 
@@ -285,6 +293,9 @@ void ThreeDWidget::initializeGL(void)
     qDebug() << QString("OpenGL %1.%2").arg(GLMajorVer).arg(GLMinorVer);
 
     glActiveTexture = (PFNGLACTIVETEXTUREPROC)wglGetProcAddress("glActiveTexture");
+    glGenSamplers = (PFNGLGENSAMPLERSPROC)wglGetProcAddress("glGenSamplers");
+    glSamplerParameteri = (PFNGLSAMPLERPARAMETERIPROC)wglGetProcAddress("glSamplerParameteri");
+    glBindSampler = (PFNGLBINDSAMPLERPROC)wglGetProcAddress("glBindSampler");
 
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_CULL_FACE);
@@ -298,12 +309,14 @@ void ThreeDWidget::initializeGL(void)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
 
-    glGenTextures(1, &mVideoTextureHandle);
-    glBindTexture(GL_TEXTURE_2D, mVideoTextureHandle);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+    glGenTextures(MaxTextures, mVideoTextureHandle);
+    for (int i = 0; i < MaxTextures; ++i) {
+        glBindTexture(GL_TEXTURE_2D, mVideoTextureHandle[i]);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+    }
 
     makeDepthShader();
     makeMixShader();

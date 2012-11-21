@@ -52,6 +52,8 @@ public: // methods
     static const GLfloat DefaultYRot;
     static const GLfloat DefaultZRot;
 
+    static const int MaxTextures = 3;
+
 signals:
     void depthFrameReady(const QImage&);
 
@@ -75,7 +77,8 @@ private: // variables
     GLfloat mZTrans;
     GLfloat mZoom;
     QPoint mLastPos;
-    GLuint mVideoTextureHandle;
+    int mActiveVideoTexture;
+    GLuint mVideoTextureHandle[MaxTextures];
     GLuint mDepthTextureHandle;
     QGLFramebufferObject* mDepthFBO;
     QGLFramebufferObject* mImageFBO;
