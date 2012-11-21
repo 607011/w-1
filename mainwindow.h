@@ -1,4 +1,4 @@
-// Copyright (c) 2012 Oliver Lau <oliver@von-und-fuer-lau.de>
+// Copyright (c) 2012 Oliver Lau <ola@ct.de>
 // All rights reserved.
 
 #ifndef __MAINWINDOW_H_
@@ -61,7 +61,8 @@ private: // methods
     void restoreSettings(void);
 
 private slots:
-
+    void contrastChanged(int);
+    void saturationChanged(int);
 };
 
 #endif // __MAINWINDOW_H_

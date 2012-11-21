@@ -1,4 +1,4 @@
-// Copyright (c) 2012 Oliver Lau <oliver@von-und-fuer-lau.de>
+// Copyright (c) 2012 Oliver Lau <ola@ct.de>
 // All rights reserved.
 
 #ifndef __3DWIDGET_H_
@@ -25,7 +25,7 @@ class ThreeDWidget : public QGLWidget
 public: // methods
     explicit ThreeDWidget(QWidget* parent = NULL);
     ~ThreeDWidget();
-    QSize minimumSizeHint(void) const { return QSize(320, 240); }
+    QSize minimumSizeHint(void) const { return QSize(640, 480); }
     QSize sizeHint(void) const { return QSize(640, 480); }
 
     void setXRotation(float);
@@ -38,6 +38,8 @@ public: // methods
     void setThresholds(int near, int far);
     void setDepthFrame(const XnDepthPixel* const, int width, int height);
     void setVideoFrame(const XnUInt8* const, int width, int height);
+    void setContrast(GLfloat);
+    void setSaturation(GLfloat);
 
     float xRotation(void) const { return mXRot; }
     float yRotation(void) const { return mYRot; }
@@ -54,10 +56,9 @@ signals:
 
 public slots:
     void setFilter(int);
-    void setContrast(int);
-    void setSaturation(int);
     void setGamma(double);
     void setSharpening(int percent);
+    void setNeighborhoodSize(int);
 
 private: // variables
     static const QVector3D mVertices[4];
@@ -79,6 +80,7 @@ private: // variables
     QGLFramebufferObject* mImageFBO;
     QGLFramebufferObject* mImageDupFBO;
     GLuint* mDepthData;
+    GLuint mNeighborhoodSize;
     QGLShaderProgram* mDepthShaderProgram;
     QGLShaderProgram* mMixShaderProgram;
     QGLShaderProgram* mWallShaderProgram;

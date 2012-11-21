@@ -1,4 +1,4 @@
-// Copyright (c) 2012 Oliver Lau <oliver@von-und-fuer-lau.de>
+// Copyright (c) 2012 Oliver Lau <ola@ct.de>
 // All rights reserved.
 
 #include <QSettings>
@@ -29,11 +29,14 @@ MainWindow::MainWindow(QWidget* parent)
     startSensor();
 
     QObject::connect(ui->tiltSpinBox, SIGNAL(valueChanged(int)), &mSensorMotor, SLOT(setTilt(int)));
+
     QObject::connect(ui->gammaSpinBox, SIGNAL(valueChanged(double)), m3DWidget, SLOT(setGamma(double)));
     QObject::connect(ui->filterComboBox, SIGNAL(currentIndexChanged(int)), m3DWidget, SLOT(setFilter(int)));
     QObject::connect(ui->sharpeningSlider, SIGNAL(valueChanged(int)), m3DWidget, SLOT(setSharpening(int)));
-    QObject::connect(ui->saturationSlider, SIGNAL(valueChanged(int)), m3DWidget, SLOT(setSaturation(int)));
-    QObject::connect(ui->contrastSlider, SIGNAL(valueChanged(int)), m3DWidget, SLOT(setContrast(int)));
+    QObject::connect(ui->neighborhoodSizeSpinBox, SIGNAL(valueChanged(int)), m3DWidget, SLOT(setNeighborhoodSize(int)));
+
+    QObject::connect(ui->saturationSlider, SIGNAL(valueChanged(int)), SLOT(saturationChanged(int)));
+    QObject::connect(ui->contrastSlider, SIGNAL(valueChanged(int)), SLOT(contrastChanged(int)));
 
     QObject::connect(m3DWidget, SIGNAL(depthFrameReady(const QImage&)), mSensorWidget, SLOT(setDepthFrame(const QImage&)));
 
@@ -59,6 +62,7 @@ void MainWindow::restoreSettings(void)
     ui->saturationSlider->setValue(settings.value("Options/saturation", 100).toInt());
     ui->contrastSlider->setValue(settings.value("Options/contrast", 100).toInt());
     ui->sharpeningSlider->setValue(settings.value("Options/sharpening", 0).toInt());
+    ui->neighborhoodSizeSpinBox->setValue(settings.value("Options/neighborhoodSize", 0).toInt());
     ui->tiltSpinBox->setValue(settings.value("Sensor/tilt", 0).toInt());
 }
 
@@ -74,6 +78,7 @@ void MainWindow::saveSettings(void)
     settings.setValue("Options/saturation", ui->saturationSlider->value());
     settings.setValue("Options/contrast", ui->contrastSlider->value());
     settings.setValue("Options/sharpening", ui->sharpeningSlider->value());
+    settings.setValue("Options/neighborhoodSize", ui->neighborhoodSizeSpinBox->value());
     settings.setValue("Sensor/tilt", ui->tiltSpinBox->value());
 }
 
@@ -192,6 +197,20 @@ void MainWindow::startSensor(void)
         mFrameTimerId = startTimer(1000 / mVideoMetaData.FPS() / 2);
         mRegressTimerId = startTimer(2000);
     }
+}
+
+
+void MainWindow::saturationChanged(int saturation)
+{
+    ui->saturationLabel->setText(QString("%1%").arg(saturation));
+    m3DWidget->setSaturation(1e-2f * GLfloat(saturation));
+}
+
+
+void MainWindow::contrastChanged(int contrast)
+{
+    ui->contrastLabel->setText(QString("%1%").arg(contrast));
+    m3DWidget->setContrast(1e-2f * GLfloat(contrast));
 }
 
 

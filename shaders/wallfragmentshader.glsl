@@ -1,7 +1,7 @@
-// Copyright (c) 2012 Oliver Lau <oliver@von-und-fuer-lau.de>
+// Copyright (c) 2012 Oliver Lau <ola@ct.de>
 // All rights reserved.
 
-varying mediump vec4 vTexCoord;
+varying vec4 vTexCoord;
 uniform sampler2D uImageTexture;
 uniform int uFilter;
 

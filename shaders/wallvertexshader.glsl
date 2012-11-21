@@ -1,10 +1,10 @@
-// Copyright (c) 2012 Oliver Lau <oliver@von-und-fuer-lau.de>
+// Copyright (c) 2012 Oliver Lau <ola@ct.de>
 // All rights reserved.
 
-attribute mediump vec4 aVertex;
-attribute mediump vec4 aTexCoord;
-varying mediump vec4 vTexCoord;
-uniform mediump mat4 uMatrix;
+attribute vec4 aVertex;
+attribute vec4 aTexCoord;
+varying vec4 vTexCoord;
+uniform mat4 uMatrix;
 
 void main(void)
 {

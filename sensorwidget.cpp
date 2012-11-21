@@ -1,8 +1,9 @@
-// Copyright (c) 2012 Oliver Lau <oliver@von-und-fuer-lau.de>
+// Copyright (c) 2012 Oliver Lau <ola@ct.de>
 // All rights reserved.
 
 #include <QPainter>
 #include "sensorwidget.h"
+
 
 SensorWidget::SensorWidget(QWidget* parent)
     : QWidget(parent)

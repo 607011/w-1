@@ -1,7 +1,7 @@
-// Copyright (c) 2012 Oliver Lau <oliver@von-und-fuer-lau.de>
+// Copyright (c) 2012 Oliver Lau <ola@ct.de>
 // All rights reserved.
 
-varying mediump vec4 vTexCoord;
+varying vec4 vTexCoord;
 uniform sampler2D uVideoTexture;
 uniform sampler2D uDepthTexture;
 uniform sampler2D uImageTexture;
@@ -9,8 +9,8 @@ uniform float uGamma;
 uniform float uContrast;
 uniform float uSaturation;
 uniform float uSharpen[9];
-uniform mediump vec2 uOffset[9];
-uniform mediump vec2 uSize;
+uniform vec2 uOffset[9];
+uniform vec2 uSize;
 
 void main(void)
 {

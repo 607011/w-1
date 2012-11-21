@@ -1,4 +1,4 @@
-// Copyright (c) 2012 Oliver Lau <oliver@von-und-fuer-lau.de>
+// Copyright (c) 2012 Oliver Lau <ola@ct.de>
 // All rights reserved.
 
 #include "3dwidget.h"
@@ -68,6 +68,7 @@ ThreeDWidget::ThreeDWidget(QWidget* parent)
     , mImageFBO(NULL)
     , mImageDupFBO(NULL)
     , mDepthData(NULL)
+    , mNeighborhoodSize(1)
     , mDepthShaderProgram(new QGLShaderProgram(this))
     , mMixShaderProgram(new QGLShaderProgram(this))
     , mWallShaderProgram(new QGLShaderProgram(this))
@@ -76,7 +77,7 @@ ThreeDWidget::ThreeDWidget(QWidget* parent)
     , mSaturation(1.0f)
     , mGamma(2.1f)
     , mNearThreshold(0)
-    , mFarThreshold(0xffffU)
+    , mFarThreshold(0xffff)
 {
     setFocus(Qt::OtherFocusReason);
     setCursor(Qt::OpenHandCursor);
@@ -170,6 +171,8 @@ void ThreeDWidget::setDepthFrame(const XnDepthPixel* const pixels, int width, in
     mDepthShaderProgram->setUniformValue("uMatrix", m);
     mDepthShaderProgram->setUniformValue("uNearThreshold", (GLfloat)mNearThreshold);
     mDepthShaderProgram->setUniformValue("uFarThreshold", (GLfloat)mFarThreshold);
+    mDepthShaderProgram->setUniformValue("uNeighborhoodSize", (GLfloat)mNeighborhoodSize);
+    mDepthShaderProgram->setUniformValue("uSize", mVideoFrameSize);
     // Framebufferobjekt als Ziel für Zeichenbefehle festlegen
     mDepthFBO->bind();
     // Fläche zeichnen
@@ -210,6 +213,7 @@ void ThreeDWidget::initializeGL(void)
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_CULL_FACE);
     glDisable(GL_TEXTURE_2D);
+    glDepthMask(GL_FALSE);
 
     glGenTextures(1, &mDepthTextureHandle);
     glBindTexture(GL_TEXTURE_2D, mDepthTextureHandle);
@@ -431,19 +435,15 @@ void ThreeDWidget::setFilter(int index)
 }
 
 
-void ThreeDWidget::setContrast(int contrast)
+void ThreeDWidget::setContrast(GLfloat contrast)
 {
-    mContrast = 1e-2f * GLfloat(contrast);
-    qDebug() << "mContrast =" << mContrast;
-    updateGL();
+    mContrast = contrast;
 }
 
 
-void ThreeDWidget::setSaturation(int saturation)
+void ThreeDWidget::setSaturation(GLfloat saturation)
 {
-    mSaturation = 1e-2f * GLfloat(saturation);
-    qDebug() << "mSaturation =" << mSaturation;
-    updateGL();
+    mSaturation = saturation;
 }
 
 
@@ -472,4 +472,10 @@ void ThreeDWidget::setSharpening(int percent)
     mSharpeningKernel[5] = intensity;
     mSharpeningKernel[7] = intensity;
     updateGL();
+}
+
+
+void ThreeDWidget::setNeighborhoodSize(int s)
+{
+    mNeighborhoodSize = (GLuint)s;
 }
