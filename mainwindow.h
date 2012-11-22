@@ -11,6 +11,7 @@
 #include <QKeyEvent>
 #include <QTime>
 #include <QImage>
+#include <QMessageBox>
 
 #include <XnCppWrapper.h>
 
@@ -30,12 +31,16 @@ public:
     explicit MainWindow(QWidget* parent = NULL);
     ~MainWindow();
 
+signals:
+    void sensorInitialized(void);
+
 protected:
     void closeEvent(QCloseEvent*);
     void timerEvent(QTimerEvent*);
     void keyPressEvent(QKeyEvent*);
 
 private:
+    QFuture<void> mInitFuture;
     Ui::MainWindow *ui;
     SensorWidget* mSensorWidget;
     ThreeDWidget* m3DWidget;
@@ -65,6 +70,7 @@ private: // methods
 private slots:
     void contrastChanged(int);
     void saturationChanged(int);
+    void postInitSensor(void);
 };
 
 #endif // __MAINWINDOW_H_

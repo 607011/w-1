@@ -72,7 +72,8 @@ ThreeDWidget::ThreeDWidget(QWidget* parent)
     , mZoom(DefaultZoom)
     , mVideoFrameLag(3)
     , mActiveVideoTexture(0)
-    , mDepthTextureHandle(0)
+    , mMergedDepthFrames(3)
+    , mActiveDepthTexture(0)
     , mDepthFBO(NULL)
     , mImageFBO(NULL)
     , mImageDupFBO(NULL)
@@ -113,14 +114,66 @@ ThreeDWidget::~ThreeDWidget()
 }
 
 
-void ThreeDWidget::setVideoFrameLag(int lag)
+void ThreeDWidget::setDepthFrame(const XnDepthPixel* const pixels, int width, int height)
 {
-    mVideoFrameLag = lag;
+    QMutexLocker locker(&mDepthShaderMutex);
+    // alle Zustände der GL-Engine sichern
+    glPushAttrib(GL_ALL_ATTRIB_BITS);
+    if ((width != int(mDepthFrameSize.x()) || height != int(mDepthFrameSize.y()))) {
+        mDepthFrameSize.setX(width);
+        mDepthFrameSize.setY(height);
+        if (mDepthFBO)
+            delete mDepthFBO;
+        mDepthFBO = new QGLFramebufferObject(width, height);
+        if (mDepthData)
+            delete mDepthData;
+        mDepthData = new GLuint[width * height];
+    }
+    glViewport(0, 0, width, height);
+
+    for (int i = 0; i < mMergedDepthFrames; ++i) {
+        glActiveTexture(GL_TEXTURE0 + i);
+        glBindTexture(GL_TEXTURE_2D, mDepthTextureHandle[i]);
+    }
+    // aktuelle Textur festlegen
+    glActiveTexture(GL_TEXTURE0 + mActiveDepthTexture);
+    glBindTexture(GL_TEXTURE_2D, mDepthTextureHandle[mActiveDepthTexture]);
+    // 16-Bit-Werte des Tiefenbilds in aktuelle Textur kopieren
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, width, height, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT, pixels);
+    if (++mActiveDepthTexture >= mMergedDepthFrames)
+        mActiveDepthTexture = 0;
+
+    // Tiefenwerte per GL-Shader in RGBA-Bild konvertieren
+    QMatrix4x4 m;
+    m.ortho(-1.6f, +1.6f, +1.2f, -1.2f, 0.1f, 15.0f);
+    m.translate(0.0f, 0.0f, -10.0f);
+    mDepthShaderProgram->bind();
+    mDepthShaderProgram->setUniformValue("uMatrix", m);
+    mDepthShaderProgram->setUniformValue("uNearThreshold", (GLfloat)mNearThreshold);
+    mDepthShaderProgram->setUniformValue("uFarThreshold", (GLfloat)mFarThreshold);
+    mDepthShaderProgram->setUniformValue("uSize", mVideoFrameSize);
+    // Framebufferobjekt als Ziel für Zeichenbefehle festlegen
+    mDepthFBO->bind();
+    // Fläche zeichnen
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    // GL-Framebuffer nach mDepthData (RGBA) kopieren
+    glReadPixels(0, 0, width, height, GL_BGRA, GL_UNSIGNED_BYTE, mDepthData);
+    mDepthFBO->release();
+    // aus RGBA-Daten ein QImage produzieren und verschicken
+    emit depthFrameReady(QImage((uchar*)mDepthData, width, height, QImage::Format_RGB32));
+
+    // RGBA-Daten des Tiefenbildes in aktuelle Textur kopieren
+    glBindTexture(GL_TEXTURE_2D, mDepthTextureHandle[mActiveDepthTexture]);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, mDepthData);
+
+    // Zustande der GL-Engine von Beginn dieser Methode wiederherstellen
+    glPopAttrib();
 }
 
 
 void ThreeDWidget::setVideoFrame(const XnUInt8* const pixels, int width, int height)
 {
+    QMutexLocker locker(&mVideoShaderMutex);
     glPushAttrib(GL_ALL_ATTRIB_BITS);
     if ((width != int(mVideoFrameSize.x()) || height != int(mVideoFrameSize.y()))) {
         mVideoFrameSize.setX(width);
@@ -144,7 +197,7 @@ void ThreeDWidget::setVideoFrame(const XnUInt8* const pixels, int width, int hei
     mActiveVideoTexture = nextActiveVideoTexture;
 
     glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, mDepthTextureHandle);
+    glBindTexture(GL_TEXTURE_2D, mDepthTextureHandle[mActiveDepthTexture]);
     glActiveTexture(GL_TEXTURE2);
     glBindTexture(GL_TEXTURE_2D, mImageFBO->texture());
 
@@ -169,53 +222,17 @@ void ThreeDWidget::setVideoFrame(const XnUInt8* const pixels, int width, int hei
 }
 
 
-void ThreeDWidget::setDepthFrame(const XnDepthPixel* const pixels, int width, int height)
+void ThreeDWidget::setVideoFrameLag(int lag)
 {
-    QMutexLocker locker(&mDepthShaderMutex);
-    // alle Zustände der GL-Engine sichern
-    glPushAttrib(GL_ALL_ATTRIB_BITS);
-    if ((width != int(mDepthFrameSize.x()) || height != int(mDepthFrameSize.y()))) {
-        mDepthFrameSize.setX(width);
-        mDepthFrameSize.setY(height);
-        if (mDepthFBO)
-            delete mDepthFBO;
-        mDepthFBO = new QGLFramebufferObject(width, height);
-        if (mDepthData)
-            delete mDepthData;
-        mDepthData = new GLuint[width * height];
-    }
-    glViewport(0, 0, width, height);
-    // aktuelle Textur festlegen
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, mDepthTextureHandle);
-    // 16-Bit-Werte des Tiefenbilds in aktuelle Textur kopieren
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, width, height, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT, pixels);
+    QMutexLocker locker(&mVideoShaderMutex);
+    mVideoFrameLag = lag;
+}
 
-    // Tiefenwerte per GL-Shader in RGBA-Bild konvertieren
-    QMatrix4x4 m;
-    m.ortho(-1.6f, +1.6f, +1.2f, -1.2f, 0.1f, 15.0f);
-    m.translate(0.0f, 0.0f, -10.0f);
-    mDepthShaderProgram->bind();
-    mDepthShaderProgram->setUniformValue("uMatrix", m);
-    mDepthShaderProgram->setUniformValue("uNearThreshold", (GLfloat)mNearThreshold);
-    mDepthShaderProgram->setUniformValue("uFarThreshold", (GLfloat)mFarThreshold);
-    mDepthShaderProgram->setUniformValue("uSize", mVideoFrameSize);
-    // Framebufferobjekt als Ziel für Zeichenbefehle festlegen
-    mDepthFBO->bind();
-    // Fläche zeichnen
-    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-    // GL-Framebuffer nach mDepthData (RGBA) kopieren
-    glReadPixels(0, 0, width, height, GL_BGRA, GL_UNSIGNED_BYTE, mDepthData);
-    mDepthFBO->release();
-    // aus RGBA-Daten ein QImage produzieren und verschicken
-    emit depthFrameReady(QImage((uchar*)mDepthData, width, height, QImage::Format_RGB32));
 
-    // RGBA-Daten in aktuelle Textur kopieren
-    glBindTexture(GL_TEXTURE_2D, mDepthTextureHandle);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, mDepthData);
-
-    // Zustande der GL-Engine von Beginn dieser Methode wiederherstellen
-    glPopAttrib();
+void ThreeDWidget::setMergedDepthFrames(int n)
+{
+    mMergedDepthFrames = n;
+    makeDepthShader();
 }
 
 
@@ -230,9 +247,7 @@ void ThreeDWidget::setThresholds(int nearThreshold, int farThreshold)
 
 
 template <typename T>
-T square(T x) {
-    return x * x;
-}
+T square(T x) { return x * x; }
 
 
 void ThreeDWidget::makeDepthShader(void)
@@ -250,9 +265,9 @@ void ThreeDWidget::makeDepthShader(void)
     QFile file(":/shaders/depthfragmentshader.glsl");
     file.open(QIODevice::ReadOnly | QIODevice::Text);
     QTextStream in(&file);
-    const QString& shaderSource = in.readAll().arg(haloArraySize);
+    const QString& fragmentShaderSource = in.readAll().arg(haloArraySize).arg(mMergedDepthFrames);
     mDepthShaderProgram->removeAllShaders();
-    mDepthShaderProgram->addShaderFromSourceCode(QGLShader::Fragment, shaderSource);
+    mDepthShaderProgram->addShaderFromSourceCode(QGLShader::Fragment, fragmentShaderSource);
     mDepthShaderProgram->addShaderFromSourceFile(QGLShader::Vertex, ":/shaders/depthvertexshader.glsl");
     mDepthShaderProgram->bindAttributeLocation("aVertex", PROGRAM_VERTEX_ATTRIBUTE);
     mDepthShaderProgram->bindAttributeLocation("aTexCoord", PROGRAM_TEXCOORD_ATTRIBUTE);
@@ -262,7 +277,8 @@ void ThreeDWidget::makeDepthShader(void)
     mDepthShaderProgram->setAttributeArray(PROGRAM_TEXCOORD_ATTRIBUTE, mTexCoords);
     mDepthShaderProgram->link();
     mDepthShaderProgram->bind();
-    mDepthShaderProgram->setUniformValue("uDepthTexture", 0);
+    for (int i = 0; i < mMergedDepthFrames; ++i)
+        mDepthShaderProgram->setUniformValue(QString("uDepthTexture[%1]").arg(i).toLatin1().constData(), i);
     mDepthShaderProgram->setUniformValueArray("uHalo", mHalo, haloArraySize);
     mDepthShaderProgram->setUniformValue("uTooNearColor", TooNearColor);
     mDepthShaderProgram->setUniformValue("uTooFarColor", TooFarColor);
@@ -273,8 +289,8 @@ void ThreeDWidget::makeDepthShader(void)
 void ThreeDWidget::makeMixShader(void)
 {
     qDebug() << "Making mMixShaderProgram ...";
-    mMixShaderProgram->addShaderFromSourceFile(QGLShader::Vertex, ":/shaders/mixvertexshader.glsl");
     mMixShaderProgram->addShaderFromSourceFile(QGLShader::Fragment, ":/shaders/mixfragmentshader.glsl");
+    mMixShaderProgram->addShaderFromSourceFile(QGLShader::Vertex, ":/shaders/mixvertexshader.glsl");
     mMixShaderProgram->bindAttributeLocation("aVertex", PROGRAM_VERTEX_ATTRIBUTE);
     mMixShaderProgram->bindAttributeLocation("aTexCoord", PROGRAM_TEXCOORD_ATTRIBUTE);
     mMixShaderProgram->enableAttributeArray(PROGRAM_VERTEX_ATTRIBUTE);
@@ -296,8 +312,8 @@ void ThreeDWidget::makeMixShader(void)
 void ThreeDWidget::makeWallShader(void)
 {
     qDebug() << "Making mWallShaderProgram ...";
-    mWallShaderProgram->addShaderFromSourceFile(QGLShader::Vertex, ":/shaders/wallvertexshader.glsl");
     mWallShaderProgram->addShaderFromSourceFile(QGLShader::Fragment, ":/shaders/wallfragmentshader.glsl");
+    mWallShaderProgram->addShaderFromSourceFile(QGLShader::Vertex, ":/shaders/wallvertexshader.glsl");
     mWallShaderProgram->bindAttributeLocation("aVertex", PROGRAM_VERTEX_ATTRIBUTE);
     mWallShaderProgram->bindAttributeLocation("aTexCoord", PROGRAM_TEXCOORD_ATTRIBUTE);
     mWallShaderProgram->enableAttributeArray(PROGRAM_VERTEX_ATTRIBUTE);
@@ -327,12 +343,14 @@ void ThreeDWidget::initializeGL(void)
     glDisable(GL_TEXTURE_2D);
     glDepthMask(GL_FALSE);
 
-    glGenTextures(1, &mDepthTextureHandle);
-    glBindTexture(GL_TEXTURE_2D, mDepthTextureHandle);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+    glGenTextures(MaxMergedDepthFrames, mDepthTextureHandle);
+    for (int i = 0; i < MaxMergedDepthFrames; ++i) {
+        glBindTexture(GL_TEXTURE_2D, mDepthTextureHandle[i]);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+    }
 
     glGenTextures(MaxVideoFrameLag, mVideoTextureHandle);
     for (int i = 0; i < MaxVideoFrameLag; ++i) {

@@ -7,6 +7,7 @@
 #include <GL/glew.h>
 #include <QMouseEvent>
 #include <QWheelEvent>
+#include <QFuture>
 #include <QRgb>
 #include <QPoint>
 #include <QVector2D>
@@ -52,7 +53,8 @@ public: // methods
     static const GLfloat DefaultYRot;
     static const GLfloat DefaultZRot;
 
-    static const int MaxVideoFrameLag = 6;
+    static const int MaxVideoFrameLag = 10;
+    static const int MaxMergedDepthFrames = 6;
 
 signals:
     void depthFrameReady(const QImage&);
@@ -63,6 +65,7 @@ public slots:
     void setSharpening(int percent);
     void setHaloRadius(int);
     void setVideoFrameLag(int);
+    void setMergedDepthFrames(int);
 
 private: // variables
     static const QVector3D mVertices[4];
@@ -83,8 +86,10 @@ private: // variables
     QPoint mLastPos;
     int mVideoFrameLag;
     int mActiveVideoTexture;
+    int mMergedDepthFrames;
+    int mActiveDepthTexture;
     GLuint mVideoTextureHandle[MaxVideoFrameLag];
-    GLuint mDepthTextureHandle;
+    GLuint mDepthTextureHandle[MaxMergedDepthFrames];
     QGLFramebufferObject* mDepthFBO;
     QGLFramebufferObject* mImageFBO;
     QGLFramebufferObject* mImageDupFBO;
@@ -106,6 +111,7 @@ private: // variables
     int mNearThreshold;
     int mFarThreshold;
     QMutex mDepthShaderMutex;
+    QMutex mVideoShaderMutex;
 
 protected: // methods
     void initializeGL(void);

@@ -3,6 +3,7 @@
 
 #include <QSettings>
 #include <QtCore/QDebug>
+#include <QtConcurrentRun>
 #include <qmath.h>
 #include "main.h"
 #include "mainwindow.h"
@@ -17,6 +18,7 @@ MainWindow::MainWindow(QWidget* parent)
 {
     ui->setupUi(this);
     setWindowTitle(tr("%1 %2").arg(AppName).arg(AppVersion));
+    setCursor(Qt::WaitCursor);
 
     mSensorWidget = new SensorWidget;
     ui->gridLayout->addWidget(mSensorWidget, 0, 0);
@@ -24,11 +26,7 @@ MainWindow::MainWindow(QWidget* parent)
     ui->gridLayout->addWidget(m3DWidget, 0, 1);
 
     ui->frameLagSpinBox->setMaximum(ThreeDWidget::MaxVideoFrameLag);
-
-    mSensorMotor.open();
-
-    initSensor();
-    startSensor();
+    ui->mergedDepthFramesSpinBox->setMaximum(ThreeDWidget::MaxMergedDepthFrames);
 
     QObject::connect(ui->tiltSpinBox, SIGNAL(valueChanged(int)), &mSensorMotor, SLOT(setTilt(int)));
 
@@ -37,11 +35,17 @@ MainWindow::MainWindow(QWidget* parent)
     QObject::connect(ui->sharpeningSlider, SIGNAL(valueChanged(int)), m3DWidget, SLOT(setSharpening(int)));
     QObject::connect(ui->haloRadiusSpinBox, SIGNAL(valueChanged(int)), m3DWidget, SLOT(setHaloRadius(int)));
     QObject::connect(ui->frameLagSpinBox, SIGNAL(valueChanged(int)), m3DWidget, SLOT(setVideoFrameLag(int)));
+    QObject::connect(ui->mergedDepthFramesSpinBox, SIGNAL(valueChanged(int)), m3DWidget, SLOT(setMergedDepthFrames(int)));
 
     QObject::connect(ui->saturationSlider, SIGNAL(valueChanged(int)), SLOT(saturationChanged(int)));
     QObject::connect(ui->contrastSlider, SIGNAL(valueChanged(int)), SLOT(contrastChanged(int)));
 
     QObject::connect(m3DWidget, SIGNAL(depthFrameReady(const QImage&)), mSensorWidget, SLOT(setDepthFrame(const QImage&)));
+
+    QObject::connect(this, SIGNAL(sensorInitialized()), SLOT(postInitSensor()));
+
+    mSensorMotor.open();
+    mInitFuture = QtConcurrent::run(this, &MainWindow::initSensor);
 
     restoreSettings();
 }
@@ -67,6 +71,7 @@ void MainWindow::restoreSettings(void)
     ui->sharpeningSlider->setValue(settings.value("Options/sharpening", 0).toInt());
     ui->haloRadiusSpinBox->setValue(settings.value("Options/haloRadius", 5).toInt());
     ui->frameLagSpinBox->setValue(settings.value("Options/videoFrameLag", 3).toInt());
+    ui->mergedDepthFramesSpinBox->setValue(settings.value("Options/mergedDepthFrames", 3).toInt());
     ui->tiltSpinBox->setValue(settings.value("Sensor/tilt", 0).toInt());
 }
 
@@ -84,6 +89,7 @@ void MainWindow::saveSettings(void)
     settings.setValue("Options/sharpening", ui->sharpeningSlider->value());
     settings.setValue("Options/haloRadius", ui->haloRadiusSpinBox->value());
     settings.setValue("Options/videoFrameLag", ui->frameLagSpinBox->value());
+    settings.setValue("Options/mergedDepthFrames", ui->mergedDepthFramesSpinBox->value());
     settings.setValue("Sensor/tilt", ui->tiltSpinBox->value());
 }
 
@@ -133,9 +139,18 @@ void MainWindow::initSensor(void)
     mDepthGenerator.GetMetaData(mDepthMetaData);
     mVideoGenerator.GetMetaData(mVideoMetaData);
 
+    emit sensorInitialized();
+}
+
+
+void MainWindow::postInitSensor(void)
+{
     XnFieldOfView fov;
     mDepthGenerator.GetFieldOfView(fov);
     m3DWidget->setFOV(fov.fHFOV/M_PI*180, fov.fVFOV/M_PI*180);
+    startSensor();
+    setCursor(Qt::ArrowCursor);
+    statusBar()->showMessage(tr("Sensor initialized."));
 }
 
 

@@ -32,13 +32,19 @@ void SensorWidget::paintEvent(QPaintEvent*)
         const int w = int(height() * mImageAspectRatio);
         mDestRect = QRect((width()-w)/2, 0, w, height());
     }
-    if (!mDepthFrame.isNull())
+    if (!mDepthFrame.isNull()) {
         p.drawImage(mDestRect, mDepthFrame);
-    p.setOpacity(0.6);
-    p.setPen(Qt::red);
-    p.setBrush(Qt::transparent);
-    p.drawLine(0, height()/2, width(), height()/2);
-    p.drawLine(width()/2, 0, width()/2, height());
+        p.setOpacity(0.6);
+        p.setPen(Qt::red);
+        p.setBrush(Qt::transparent);
+        p.drawLine(0, height()/2, width(), height()/2);
+        p.drawLine(width()/2, 0, width()/2, height());
+    }
+    else {
+        p.setRenderHint(QPainter::Antialiasing);
+        p.setPen(QColor(210, 210, 210));
+        p.drawText(rect(), Qt::AlignHCenter | Qt::AlignVCenter, tr("Initializing sensor ... please wait ...!"));
+    }
 }
 
 
