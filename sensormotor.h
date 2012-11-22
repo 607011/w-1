@@ -1,4 +1,4 @@
-// Copyright (c) 2012 Oliver Lau <oliver@von-und-fuer-lau.de>
+// Copyright (c) 2012 Oliver Lau <ola@ct.de>
 // All rights reserved.
 
 #ifndef __SENSORMOTOR_H_

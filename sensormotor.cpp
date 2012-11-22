@@ -1,4 +1,4 @@
-// Copyright (c) 2012 Oliver Lau <oliver@von-und-fuer-lau.de>
+// Copyright (c) 2012 Oliver Lau <ola@ct.de>
 // All rights reserved.
 
 #include <QtCore/QDebug>
@@ -20,6 +20,8 @@ SensorMotor::~SensorMotor()
 
 bool SensorMotor::open(void)
 {
+    if (mOpened)
+        return true;
     const XnUSBConnectionString* paths;
     XnUInt32 count;
     XnStatus rc;

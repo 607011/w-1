@@ -1,4 +1,4 @@
-w-1
+W-1
 ===
 
-chalk board minus teacher
+*Whiteboard minus one* demonstriert, wie man mit Hilfe der Tiefendaten der Kinect störende Objekte vor einer Tafel entfernen kann.

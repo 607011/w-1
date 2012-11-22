@@ -1,44 +1,23 @@
-// Copyright (c) 2012 Oliver Lau <oliver@von-und-fuer-lau.de>
+// Copyright (c) 2012 Oliver Lau <ola@ct.de>
 // All rights reserved.
 
-varying mediump vec4 texc;
-uniform sampler2D texture;
-uniform float gamma;
-uniform vec2 offset[9];
-uniform float sharpen[9];
-uniform vec2 size;
-
-
-void denoise(inout vec4 texel, inout vec2 coord)
-{
-    const float effectWidth = 0.1;
-    const float val0 = 1.0;
-    const float val1 = 0.125;
-    float tap = effectWidth;
-    vec4 accum = texel * val0;
-    for (int i = 0; i < 16; i++) {
-        float dx = tap / size.x;
-        float dy = tap / size.y;
-        accum += texture2D(texture, coord + vec2(-dx, -dy)) * val1;
-        accum += texture2D(texture, coord + vec2(0.0, -dy)) * val1;
-        accum += texture2D(texture, coord + vec2(-dx, 0.0)) * val1;
-        accum += texture2D(texture, coord + vec2( dx, 0.0)) * val1;
-        accum += texture2D(texture, coord + vec2(0.0,  dy)) * val1;
-        accum += texture2D(texture, coord + vec2( dx,  dy)) * val1;
-        accum += texture2D(texture, coord + vec2(-dx,  dy)) * val1;
-        accum += texture2D(texture, coord + vec2( dx, -dy)) * val1;
-        tap += effectWidth;
-    }
-    texel = accum / 16.0;
-}
-
+varying vec4 vTexCoord;
+uniform sampler2D uImageTexture;
+uniform int uFilter;
 
 void main(void)
 {
-    vec4 color = vec4(0.0);
-    for (int i = 0; i < 9; ++i) {
-        vec4 c = texture2D(texture, texc.st + offset[i] / size);
-        color += c * sharpen[i];
+    vec3 color = texture2D(uImageTexture, vTexCoord.st).rgb;
+    if (uFilter == 1) { // grayscale
+        float gray = dot(color, vec3(0.299, 0.587, 0.114));
+        color = vec3(gray, gray, gray);
     }
-    gl_FragColor.rgb = pow(color.rgb, vec3(1.0 / gamma));
+    else if (uFilter == 2) { // sepia tone
+        float gray = dot(color, vec3(0.299, 0.587, 0.114));
+        color = gray * vec3(1.2, 1.0, 0.8);
+    }
+    else if (uFilter == 3) { // negative
+        color = 1.0 - color;
+    }
+    gl_FragColor.rgb = color;
 }

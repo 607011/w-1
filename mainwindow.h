@@ -1,4 +1,4 @@
-// Copyright (c) 2012 Oliver Lau <oliver@von-und-fuer-lau.de>
+// Copyright (c) 2012 Oliver Lau <ola@ct.de>
 // All rights reserved.
 
 #ifndef __MAINWINDOW_H_
@@ -8,6 +8,7 @@
 #include <QCloseEvent>
 #include <QShowEvent>
 #include <QTimerEvent>
+#include <QKeyEvent>
 #include <QTime>
 #include <QImage>
 
@@ -32,11 +33,12 @@ public:
 protected:
     void closeEvent(QCloseEvent*);
     void timerEvent(QTimerEvent*);
+    void keyPressEvent(QKeyEvent*);
 
 private:
     Ui::MainWindow *ui;
     SensorWidget* mSensorWidget;
-    ThreeDWidget* mThreeDWidget;
+    ThreeDWidget* m3DWidget;
     SensorMotor mSensorMotor;
     int mFrameTimerId;
     int mRegressTimerId;
@@ -50,8 +52,6 @@ private:
     qreal hB;
     QTime mT0;
     int mFrameCount;
-    QImage mVideoImage;
-    QImage mDepthImage;
 
 private: // methods
     void initSensor(void);
@@ -63,7 +63,8 @@ private: // methods
     void restoreSettings(void);
 
 private slots:
-
+    void contrastChanged(int);
+    void saturationChanged(int);
 };
 
 #endif // __MAINWINDOW_H_

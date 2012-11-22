@@ -1,22 +1,26 @@
-// Copyright (c) 2012 Oliver Lau <oliver@von-und-fuer-lau.de>
+// Copyright (c) 2012 Oliver Lau <ola@ct.de>
 // All rights reserved.
 
 #include "3dwidget.h"
 
 #include <QColor>
+#include <QFile>
+#include <QTextStream>
 #include <QImage>
 #include <QPixmap>
 #include <QTimer>
+#include <QDateTime>
+#include <QMutexLocker>
 #include <QtCore/QDebug>
-#include <qmath.h>
-
-#ifdef USE_SHADER
 #include <QMatrix4x4>
 #include <QGLShader>
-#endif
+#include <qmath.h>
 
 
-const float ThreeDWidget::DefaultZoom = -2.0f;
+static const int PROGRAM_VERTEX_ATTRIBUTE = 0;
+static const int PROGRAM_TEXCOORD_ATTRIBUTE = 1;
+
+const float ThreeDWidget::DefaultZoom = -2.45f;
 const float ThreeDWidget::DefaultXRot = 180.0f;
 const float ThreeDWidget::DefaultYRot = 0.0f;
 const float ThreeDWidget::DefaultZRot = 0.0f;
@@ -61,85 +65,277 @@ ThreeDWidget::ThreeDWidget(QWidget* parent)
     , mYTrans(0)
     , mZTrans(0)
     , mZoom(DefaultZoom)
-    , mTextureHandle(0)
-    #ifdef USE_SHADER
-    , mShaderProgram(new QGLShaderProgram(this))
-    #endif
+    , mVideoFrameLag(3)
+    , mActiveVideoTexture(0)
+    , mDepthTextureHandle(0)
+    , mDepthFBO(NULL)
+    , mImageFBO(NULL)
+    , mImageDupFBO(NULL)
+    , mDepthData(NULL)
+    , mHaloRadius(1)
+    , mHalo(NULL)
+    , mDepthShaderProgram(new QGLShaderProgram(this))
+    , mMixShaderProgram(new QGLShaderProgram(this))
+    , mWallShaderProgram(new QGLShaderProgram(this))
+    , mFilter(0)
+    , mContrast(1.0f)
+    , mSaturation(1.0f)
+    , mGamma(2.1f)
+    , mNearThreshold(0)
+    , mFarThreshold(0xffff)
 {
     setFocus(Qt::OtherFocusReason);
     setCursor(Qt::OpenHandCursor);
-    grabKeyboard();
     setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding);
 }
 
 
 ThreeDWidget::~ThreeDWidget()
 {
-#ifdef USE_SHADER
-    delete mShaderProgram;
-#endif
+    delete mWallShaderProgram;
+    delete mMixShaderProgram;
+    delete mDepthShaderProgram;
+    if (mDepthFBO)
+        delete mDepthFBO;
+    if (mImageFBO)
+        delete mImageFBO;
+    if (mImageDupFBO)
+        delete mImageDupFBO;
+    if (mDepthData)
+        delete [] mDepthData;
+    if (mHalo)
+        delete [] mHalo;
 }
 
 
-void ThreeDWidget::videoFrameReady(const QImage& frame)
+void ThreeDWidget::setVideoFrame(const XnUInt8* const pixels, int width, int height)
 {
-    if (frame.isNull())
-        return;
-    mFrameSize.setX(frame.width());
-    mFrameSize.setY(frame.height());
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, frame.width(), frame.height(), 0, GL_BGRA, GL_UNSIGNED_BYTE, frame.constBits());
+    glPushAttrib(GL_ALL_ATTRIB_BITS);
+    if ((width != int(mVideoFrameSize.x()) || height != int(mVideoFrameSize.y()))) {
+        mVideoFrameSize.setX(width);
+        mVideoFrameSize.setY(height);
+        if (mImageFBO)
+            delete mImageFBO;
+        mImageFBO = new QGLFramebufferObject(width, height);
+        if (mImageDupFBO)
+            delete mImageDupFBO;
+        mImageDupFBO = new QGLFramebufferObject(width, height);
+    }
+    glActiveTexture(GL_TEXTURE0);
+    int nextActiveVideoTexture = mActiveVideoTexture + 1;
+    if (nextActiveVideoTexture >= mVideoFrameLag)
+        nextActiveVideoTexture = 0;
+    glBindTexture(GL_TEXTURE_2D, mVideoTextureHandle[mActiveVideoTexture]);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, pixels);
+
+    glBindTexture(GL_TEXTURE_2D, mVideoTextureHandle[nextActiveVideoTexture]);
+    mActiveVideoTexture = nextActiveVideoTexture;
+
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, mDepthTextureHandle);
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, mImageFBO->texture());
+
+    QMatrix4x4 m;
+    m.ortho(-1.6f, +1.6f, +1.2f, -1.2f, 0.1f, 15.0f);
+    m.translate(0.0f, 0.0f, -10.0f);
+    mMixShaderProgram->bind();
+    mMixShaderProgram->setUniformValue("uMatrix", m);
+    mMixShaderProgram->setUniformValue("uGamma", mGamma);
+    mMixShaderProgram->setUniformValue("uContrast", mContrast);
+    mMixShaderProgram->setUniformValue("uSaturation", mSaturation);
+    mMixShaderProgram->setUniformValue("uSize", mVideoFrameSize);
+    mMixShaderProgram->setUniformValueArray("uSharpen", mSharpeningKernel, 9, 1);
+    mImageDupFBO->bind();
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    mImageDupFBO->release();
+
+    QRect rect(0, 0, width, height);
+    QGLFramebufferObject::blitFramebuffer(mImageFBO, rect, mImageDupFBO, rect);
+
+    glPopAttrib();
+}
+
+
+void ThreeDWidget::setVideoFrameLag(int lag)
+{
+    Q_ASSERT(lag <= MaxVideoFrameLag);
+    Q_ASSERT(lag > 0);
+    mVideoFrameLag = lag;
+}
+
+
+void ThreeDWidget::setDepthFrame(const XnDepthPixel* const pixels, int width, int height)
+{
+    QMutexLocker locker(&mDepthShaderMutex);
+    // alle Zustände der GL-Engine sichern
+    glPushAttrib(GL_ALL_ATTRIB_BITS);
+    if ((width != int(mDepthFrameSize.x()) || height != int(mDepthFrameSize.y()))) {
+        mDepthFrameSize.setX(width);
+        mDepthFrameSize.setY(height);
+        if (mDepthFBO)
+            delete mDepthFBO;
+        mDepthFBO = new QGLFramebufferObject(width, height);
+        if (mDepthData)
+            delete mDepthData;
+        mDepthData = new GLuint[width * height];
+    }
+    // aktuelle Textur festlegen
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, mDepthTextureHandle);
+    // 16-Bit-Werte des Tiefenbilds in aktuelle Textur kopieren
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, width, height, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT, pixels);
+
+    // Tiefenwerte per GL-Shader in RGBA-Bild konvertieren
+    QMatrix4x4 m;
+    m.ortho(-1.6f, +1.6f, +1.2f, -1.2f, 0.1f, 15.0f);
+    m.translate(0.0f, 0.0f, -10.0f);
+    mDepthShaderProgram->bind();
+    mDepthShaderProgram->setUniformValue("uMatrix", m);
+    mDepthShaderProgram->setUniformValue("uNearThreshold", (GLfloat)mNearThreshold);
+    mDepthShaderProgram->setUniformValue("uFarThreshold", (GLfloat)mFarThreshold);
+    mDepthShaderProgram->setUniformValue("uSize", mVideoFrameSize);
+    // Framebufferobjekt als Ziel für Zeichenbefehle festlegen
+    mDepthFBO->bind();
+    // Fläche zeichnen
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    // GL-Framebuffer nach mDepthData (RGBA) kopieren
+    glReadPixels(0, 0, width, height, GL_BGRA, GL_UNSIGNED_BYTE, mDepthData);
+    mDepthFBO->release();
+    // aus RGBA-Daten ein QImage produzieren und verschicken
+    emit depthFrameReady(QImage((uchar*)mDepthData, width, height, QImage::Format_RGB32));
+
+    // RGBA-Daten in aktuelle Textur kopieren
+    glBindTexture(GL_TEXTURE_2D, mDepthTextureHandle);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, mDepthData);
+
+    // Zustande der GL-Engine von Beginn dieser Methode wiederherstellen
+    glPopAttrib();
+}
+
+
+void ThreeDWidget::setThresholds(int nearThreshold, int farThreshold)
+{
+    mNearThreshold = nearThreshold;
+    mFarThreshold = farThreshold;
     updateGL();
+}
+
+
+void ThreeDWidget::makeDepthShader(void)
+{
+    QMutexLocker locker(&mDepthShaderMutex);
+    qDebug() << "Making mDepthShaderProgram w/ halo radius of" << mHaloRadius << "...";
+    if (mHalo)
+        delete [] mHalo;
+    const int haloArraySize = 2 * mHaloRadius * 2 * mHaloRadius;
+    mHalo = new QVector2D[haloArraySize];
+    int i = 0;
+    for (int x = -mHaloRadius; x < mHaloRadius; ++x)
+        for (int y = -mHaloRadius; y < mHaloRadius; ++y)
+            mHalo[i++] = QVector2D(x, y);
+    QFile file(":/shaders/depthfragmentshader.glsl");
+    file.open(QIODevice::ReadOnly | QIODevice::Text);
+    QTextStream in(&file);
+    const QString& shaderSource = in.readAll().arg(haloArraySize);
+    mDepthShaderProgram->removeAllShaders();
+    mDepthShaderProgram->addShaderFromSourceCode(QGLShader::Fragment, shaderSource);
+    mDepthShaderProgram->addShaderFromSourceFile(QGLShader::Vertex, ":/shaders/depthvertexshader.glsl");
+    mDepthShaderProgram->bindAttributeLocation("aVertex", PROGRAM_VERTEX_ATTRIBUTE);
+    mDepthShaderProgram->bindAttributeLocation("aTexCoord", PROGRAM_TEXCOORD_ATTRIBUTE);
+    mDepthShaderProgram->enableAttributeArray(PROGRAM_VERTEX_ATTRIBUTE);
+    mDepthShaderProgram->enableAttributeArray(PROGRAM_TEXCOORD_ATTRIBUTE);
+    mDepthShaderProgram->setAttributeArray(PROGRAM_VERTEX_ATTRIBUTE, mVertices);
+    mDepthShaderProgram->setAttributeArray(PROGRAM_TEXCOORD_ATTRIBUTE, mTexCoords);
+    mDepthShaderProgram->link();
+    mDepthShaderProgram->bind();
+    mDepthShaderProgram->setUniformValue("uDepthTexture", 0);
+    mDepthShaderProgram->setUniformValueArray("uHalo", mHalo, haloArraySize);
+}
+
+
+void ThreeDWidget::makeMixShader(void)
+{
+    qDebug() << "Making mMixShaderProgram ...";
+    mMixShaderProgram->addShaderFromSourceFile(QGLShader::Vertex, ":/shaders/mixvertexshader.glsl");
+    mMixShaderProgram->addShaderFromSourceFile(QGLShader::Fragment, ":/shaders/mixfragmentshader.glsl");
+    mMixShaderProgram->bindAttributeLocation("aVertex", PROGRAM_VERTEX_ATTRIBUTE);
+    mMixShaderProgram->bindAttributeLocation("aTexCoord", PROGRAM_TEXCOORD_ATTRIBUTE);
+    mMixShaderProgram->enableAttributeArray(PROGRAM_VERTEX_ATTRIBUTE);
+    mMixShaderProgram->enableAttributeArray(PROGRAM_TEXCOORD_ATTRIBUTE);
+    mMixShaderProgram->setAttributeArray(PROGRAM_VERTEX_ATTRIBUTE, mVertices);
+    mMixShaderProgram->setAttributeArray(PROGRAM_TEXCOORD_ATTRIBUTE, mTexCoords);
+    mMixShaderProgram->link();
+    mMixShaderProgram->bind();
+    mMixShaderProgram->setUniformValue("uVideoTexture", 0);
+    mMixShaderProgram->setUniformValue("uDepthTexture", 1);
+    mMixShaderProgram->setUniformValue("uImageTexture", 2);
+    mMixShaderProgram->setUniformValueArray("uOffset", mOffset, 9);
+}
+
+
+void ThreeDWidget::makeWallShader(void)
+{
+    qDebug() << "Making mWallShaderProgram ...";
+    mWallShaderProgram->addShaderFromSourceFile(QGLShader::Vertex, ":/shaders/wallvertexshader.glsl");
+    mWallShaderProgram->addShaderFromSourceFile(QGLShader::Fragment, ":/shaders/wallfragmentshader.glsl");
+    mWallShaderProgram->bindAttributeLocation("aVertex", PROGRAM_VERTEX_ATTRIBUTE);
+    mWallShaderProgram->bindAttributeLocation("aTexCoord", PROGRAM_TEXCOORD_ATTRIBUTE);
+    mWallShaderProgram->enableAttributeArray(PROGRAM_VERTEX_ATTRIBUTE);
+    mWallShaderProgram->enableAttributeArray(PROGRAM_TEXCOORD_ATTRIBUTE);
+    mWallShaderProgram->setAttributeArray(PROGRAM_VERTEX_ATTRIBUTE, mVertices);
+    mWallShaderProgram->setAttributeArray(PROGRAM_TEXCOORD_ATTRIBUTE, mTexCoords);
+    mWallShaderProgram->link();
+    mWallShaderProgram->bind();
+    mWallShaderProgram->setUniformValue("uImageTexture", 0);
 }
 
 
 void ThreeDWidget::initializeGL(void)
 {
-    glGenTextures(1, &mTextureHandle);
-    glBindTexture(GL_TEXTURE_2D, mTextureHandle);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    GLint GLMajorVer, GLMinorVer;
+    glGetIntegerv(GL_MAJOR_VERSION, &GLMajorVer);
+    glGetIntegerv(GL_MINOR_VERSION, &GLMinorVer);
+    qDebug() << QString("OpenGL %1.%2").arg(GLMajorVer).arg(GLMinorVer);
+
+    glActiveTexture = (PFNGLACTIVETEXTUREPROC)wglGetProcAddress("glActiveTexture");
+    glGenSamplers = (PFNGLGENSAMPLERSPROC)wglGetProcAddress("glGenSamplers");
+    glSamplerParameteri = (PFNGLSAMPLERPARAMETERIPROC)wglGetProcAddress("glSamplerParameteri");
+    glBindSampler = (PFNGLBINDSAMPLERPROC)wglGetProcAddress("glBindSampler");
+
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_CULL_FACE);
+    glDisable(GL_TEXTURE_2D);
+    glDepthMask(GL_FALSE);
+
+    glGenTextures(1, &mDepthTextureHandle);
+    glBindTexture(GL_TEXTURE_2D, mDepthTextureHandle);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
 
-    glEnable(GL_DEPTH_TEST);
-#ifndef USE_SHADER
-    glEnable(GL_TEXTURE_2D);
-#else
-#define PROGRAM_VERTEX_ATTRIBUTE 0
-#define PROGRAM_TEXCOORD_ATTRIBUTE 1
-    QGLShader* vshader = new QGLShader(QGLShader::Vertex, this);
-    vshader->compileSourceFile(":/shaders/wallvertexshader.glsl");
-    QGLShader *fshader = new QGLShader(QGLShader::Fragment, this);
-    fshader->compileSourceFile(":/shaders/wallfragmentshader.glsl");
-    mShaderProgram->addShader(vshader);
-    mShaderProgram->addShader(fshader);
-    mShaderProgram->bindAttributeLocation("vertex", PROGRAM_VERTEX_ATTRIBUTE);
-    mShaderProgram->bindAttributeLocation("texCoord", PROGRAM_TEXCOORD_ATTRIBUTE);
-    mShaderProgram->link();
-    mShaderProgram->bind();
-    mShaderProgram->setUniformValue("texture", 0);
-    mShaderProgram->setUniformValueArray("offset", mOffset, 9);
-#endif
+    glGenTextures(MaxVideoFrameLag, mVideoTextureHandle);
+    for (int i = 0; i < MaxVideoFrameLag; ++i) {
+        glBindTexture(GL_TEXTURE_2D, mVideoTextureHandle[i]);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+    }
+
+    makeDepthShader();
+    makeMixShader();
+    makeWallShader();
 }
 
 
 void ThreeDWidget::paintGL(void)
 {
+    if (mImageFBO == NULL)
+        return;
     glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-#ifndef USE_SHADER
-    glLoadIdentity();
-    glTranslatef(0.0f, 0.0f, mZoom);
-    glRotatef(mXRot, 1.0f, 0.0f, 0.0f);
-    glRotatef(mYRot, 0.0f, 1.0f, 0.0f);
-    glRotatef(mZRot, 0.0f, 0.0f, 1.0f);
-    glTranslatef(mXTrans, mYTrans, mZTrans);
-    glVertexPointer(3, GL_FLOAT, 0, mVertices);
-    glTexCoordPointer(2, GL_FLOAT, 0, mTexCoords);
-    glEnableClientState(GL_VERTEX_ARRAY);
-    glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-#else
     QMatrix4x4 m;
     m.perspective((mFOVx + mFOVy) / 2, qreal(width()) / height(), 0.48, 12.0);
     m.translate(0.0f, 0.0f, mZoom);
@@ -147,16 +343,11 @@ void ThreeDWidget::paintGL(void)
     m.rotate(mYRot, 0.0f, 1.0f, 0.0f);
     m.rotate(mZRot, 0.0f, 0.0f, 1.0f);
     m.translate(mXTrans, mYTrans, mZTrans);
-    mShaderProgram->setUniformValue("gamma", mGamma);
-    mShaderProgram->setUniformValue("matrix", m);
-    mShaderProgram->setUniformValue("size", mFrameSize);
-    mShaderProgram->setUniformValueArray("sharpen", mSharpeningKernel, 9, 1);
-    mShaderProgram->enableAttributeArray(PROGRAM_VERTEX_ATTRIBUTE);
-    mShaderProgram->enableAttributeArray(PROGRAM_TEXCOORD_ATTRIBUTE);
-    mShaderProgram->setAttributeArray(PROGRAM_VERTEX_ATTRIBUTE, mVertices);
-    mShaderProgram->setAttributeArray(PROGRAM_TEXCOORD_ATTRIBUTE, mTexCoords);
-#endif
-
+    mWallShaderProgram->bind();
+    mWallShaderProgram->setUniformValue("uMatrix", m);
+    mWallShaderProgram->setUniformValue("uFilter", mFilter);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, mImageFBO->texture());
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 }
 
@@ -164,51 +355,6 @@ void ThreeDWidget::paintGL(void)
 void ThreeDWidget::resizeGL(int width, int height)
 {
     glViewport(0, 0, width, height);
-#ifndef USE_SHADER
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    gluPerspective((mFOVx + mFOVy) / 2, (GLdouble)width/(GLdouble)height, 0.48, 12.0);
-    glMatrixMode(GL_MODELVIEW);
-#endif
-}
-
-
-void ThreeDWidget::keyPressEvent(QKeyEvent* e)
-{
-    const float dTrans = (e->modifiers() & Qt::ShiftModifier)? 0.05f : 0.5f;
-    const float dRot = (e->modifiers() & Qt::ShiftModifier)? 0.1f : 1.0f;
-    switch(e->key()) {
-    case Qt::Key_Left:
-        mZRot -= dRot;
-        updateGL();
-        break;
-    case Qt::Key_Right:
-        mZRot += dRot;
-        updateGL();
-        break;
-    case Qt::Key_Down:
-        mZTrans -= dTrans;
-        updateGL();
-        break;
-    case Qt::Key_Up:
-        mZTrans += dTrans;
-        updateGL();
-        break;
-    case Qt::Key_Escape:
-        mZoom = DefaultZoom;
-        mXRot = DefaultXRot;
-        mYRot = DefaultYRot;
-        mZRot = DefaultYRot;
-        mXTrans = 0;
-        mYTrans = 0;
-        mZTrans = 0;
-        updateGL();
-        break;
-    default:
-        e->ignore();
-        return;
-    }
-    e->accept();
 }
 
 
@@ -227,8 +373,8 @@ void ThreeDWidget::mouseReleaseEvent(QMouseEvent*)
 
 void ThreeDWidget::wheelEvent(QWheelEvent* e)
 {
-    setZoom(mZoom + ((e->delta() < 0)? -0.2f : 0.2f));
-    updateGL();
+    const float dZoom = (e->modifiers() & Qt::ShiftModifier)? 0.04f : 0.2f;
+    setZoom(mZoom + ((e->delta() < 0)? -dZoom : dZoom));
 }
 
 
@@ -243,6 +389,19 @@ void ThreeDWidget::mouseMoveEvent(QMouseEvent* e)
         setYTranslation(mYTrans + 0.01f * (e->y() - mLastPos.y()));
     }
     mLastPos = e->pos();
+}
+
+
+void ThreeDWidget::resetTransformations(void)
+{
+    mZoom = DefaultZoom;
+    mXRot = DefaultXRot;
+    mYRot = DefaultYRot;
+    mZRot = DefaultYRot;
+    mXTrans = 0;
+    mYTrans = 0;
+    mZTrans = 0;
+    updateGL();
 }
 
 
@@ -300,9 +459,28 @@ void ThreeDWidget::setZoom(float zoom)
 }
 
 
-void ThreeDWidget::setGamma(double gradient)
+void ThreeDWidget::setFilter(int index)
 {
-    mGamma = (GLfloat)gradient;
+    mFilter = (GLint)index;
+    updateGL();
+}
+
+
+void ThreeDWidget::setContrast(GLfloat contrast)
+{
+    mContrast = contrast;
+}
+
+
+void ThreeDWidget::setSaturation(GLfloat saturation)
+{
+    mSaturation = saturation;
+}
+
+
+void ThreeDWidget::setGamma(double gamma)
+{
+    mGamma = (GLfloat)gamma;
     updateGL();
 }
 
@@ -311,7 +489,6 @@ void ThreeDWidget::setFOV(float x, float y)
 {
     mFOVx = x;
     mFOVy = y;
-    qDebug() << "field of view (x°, y°): (" << x << "," << y << ")";
     updateGL();
 }
 
@@ -325,4 +502,11 @@ void ThreeDWidget::setSharpening(int percent)
     mSharpeningKernel[5] = intensity;
     mSharpeningKernel[7] = intensity;
     updateGL();
+}
+
+
+void ThreeDWidget::setHaloRadius(int radius)
+{
+    mHaloRadius = radius;
+    makeDepthShader();
 }

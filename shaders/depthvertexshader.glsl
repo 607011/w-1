@@ -8,6 +8,8 @@ uniform mat4 uMatrix;
 
 void main(void)
 {
-    vTexCoord = aTexCoord;
+    vTexCoord.x = aTexCoord.x;
+    vTexCoord.y = 1.0 - aTexCoord.y;
+    vTexCoord.z = aTexCoord.z;
     gl_Position = uMatrix * aVertex;
 }

@@ -1,13 +1,14 @@
-// Copyright (c) 2012 Oliver Lau <oliver@von-und-fuer-lau.de>
+// Copyright (c) 2012 Oliver Lau <ola@ct.de>
 // All rights reserved.
 
 #include <QPainter>
 #include "sensorwidget.h"
 
+
 SensorWidget::SensorWidget(QWidget* parent)
     : QWidget(parent)
-    , mWindowAspectRatio(640/480)
-    , mImageAspectRatio(640/480)
+    , mWindowAspectRatio(1)
+    , mImageAspectRatio(1)
 {
     setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding);
 }
@@ -41,7 +42,7 @@ void SensorWidget::paintEvent(QPaintEvent*)
 }
 
 
-void SensorWidget::depthFrameReady(const QImage& frame)
+void SensorWidget::setDepthFrame(const QImage& frame)
 {
     mDepthFrame = frame;
     mImageAspectRatio = (qreal)mDepthFrame.width() / mDepthFrame.height();
