@@ -150,7 +150,7 @@ void MainWindow::postInitSensor(void)
     m3DWidget->setFOV(fov.fHFOV/M_PI*180, fov.fVFOV/M_PI*180);
     startSensor();
     setCursor(Qt::ArrowCursor);
-    statusBar()->showMessage(tr("Sensor initialized."));
+    statusBar()->showMessage(tr("Sensor initialized."), 3000);
 }
 
 
@@ -168,9 +168,8 @@ void MainWindow::closeEvent(QCloseEvent* e)
 void MainWindow::timerEvent(QTimerEvent* e)
 {
     if (e->timerId() == mFrameTimerId) {
-        XnStatus rc;
         mDepthGenerator.GetAlternativeViewPointCap().SetViewPoint(mVideoGenerator);
-        rc = mContext.WaitAndUpdateAll();
+        XnStatus rc = mContext.WaitAndUpdateAll();
         if (rc != XN_STATUS_OK) {
             qWarning() << "Failed updating data:" << xnGetStatusString(rc);
             return;
@@ -179,7 +178,7 @@ void MainWindow::timerEvent(QTimerEvent* e)
         m3DWidget->setDepthFrame(mDepthGenerator.GetDepthMap(), mDepthMetaData.XRes(), mDepthMetaData.YRes());
         m3DWidget->setThresholds(ui->nearClippingSpinBox->value(), ui->farClippingSpinBox->value());
         if (++mFrameCount > 10) {
-            statusBar()->showMessage(QString("%1 fps").arg(1e3 * mFrameCount / mT0.elapsed(), 0, 'f', 1));
+            mSensorWidget->setFPS(1e3 * mFrameCount / mT0.elapsed());
             mT0.start();
             mFrameCount = 0;
         }
@@ -266,9 +265,9 @@ void MainWindow::regressH(void)
         }
     }
     float z_ = sumZ / n;
-    ui->z_LineEdit->setText(QString("%1 mm").arg(z_));
+//    ui->z_LineEdit->setText(QString("%1 mm").arg(z_));
     float x_ = sumX / n - 0.5f * mDepthMetaData.XRes();
-    ui->x_LineEdit->setText(QString("%1").arg(x_));
+//    ui->x_LineEdit->setText(QString("%1").arg(x_));
     pZ = midLine;
     float sumZ2 = 0, sumZX = 0;
     for (XnUInt32 x = 0; x < mDepthMetaData.XRes(); ++x) {
@@ -282,7 +281,7 @@ void MainWindow::regressH(void)
     }
     hB = sumZX / sumZ2;
     hA = x_ - hB * z_;
-    ui->aLineEdit->setText(QString("%1").arg(hA));
-    ui->bLineEdit->setText(QString("%1").arg(hB));
-    ui->zCenterLineEdit->setText(QString("%1 mm").arg((int)midLine[mDepthMetaData.XRes() / 2]));
+//    ui->aLineEdit->setText(QString("%1").arg(hA));
+//    ui->bLineEdit->setText(QString("%1").arg(hB));
+//    ui->zCenterLineEdit->setText(QString("%1 mm").arg((int)midLine[mDepthMetaData.XRes() / 2]));
 }

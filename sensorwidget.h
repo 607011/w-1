@@ -19,6 +19,8 @@ public:
     QSize minimumSizeHint(void) const { return QSize(320, 240); }
     QSize sizeHint(void) { return QSize(640, 480); }
 
+    inline void setFPS(qreal fps) { mFPS = fps; }
+
 public slots:
     void setDepthFrame(const QImage&);
 
@@ -31,6 +33,7 @@ private:
     qreal mWindowAspectRatio;
     qreal mImageAspectRatio;
     QRectF mDestRect;
+    qreal mFPS;
 
 };
 
