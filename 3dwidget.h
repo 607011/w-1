@@ -52,7 +52,7 @@ public: // methods
     static const GLfloat DefaultYRot;
     static const GLfloat DefaultZRot;
 
-    static const int MaxVideoFrameLag = 3;
+    static const int MaxVideoFrameLag = 6;
 
 signals:
     void depthFrameReady(const QImage&);
@@ -69,6 +69,9 @@ private: // variables
     static const QVector2D mTexCoords[4];
     static const QVector2D mOffset[9];
     static GLfloat mSharpeningKernel[9];
+    static const QVector3D TooNearColor;
+    static const QVector3D TooFarColor;
+    static const QVector3D InvalidDepthColor;
 
     GLfloat mXRot;
     GLfloat mYRot;

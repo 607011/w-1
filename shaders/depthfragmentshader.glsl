@@ -7,10 +7,10 @@ uniform float uNearThreshold;
 uniform float uFarThreshold;
 uniform vec2 uSize;
 uniform vec2 uHalo[%1]; // Platzhalter wird im C++-Code durch Feldgröße ersetzt
+uniform vec3 uTooNearColor;
+uniform vec3 uTooFarColor;
+uniform vec3 uInvalidDepthColor;
 
-const vec3 TooNearColor = vec3(251.0 / 255.0, 85.0 / 255.0, 5.0 / 255.0);
-const vec3 TooFarColor = vec3(8.0 / 255.0, 98.0 / 255.0, 250.0 / 255.0);
-const vec3 InvalidDepthColor = vec3(0.0, 251.0 / 255.0, 190.0 / 255.0);
 const vec2 DepthFactor = vec2(65536.0, 256.0);
 
 
@@ -20,11 +20,11 @@ vec3 colorOf(in vec2 coord)
         vec2 neighbor = coord + uHalo[i] / uSize;
         float neighborDepth = dot(texture2D(uDepthTexture, neighbor).rg, DepthFactor);
         if (neighborDepth == 0.0)
-            return InvalidDepthColor;
+            return uInvalidDepthColor;
         if (neighborDepth < uNearThreshold)
-            return TooNearColor;
+            return uTooNearColor;
         if (neighborDepth > uFarThreshold)
-            return TooFarColor;
+            return uTooFarColor;
     }
     float depth = dot(texture2D(uDepthTexture, coord).rg, DepthFactor);
     float k = (depth - uNearThreshold) / (uFarThreshold - uNearThreshold);

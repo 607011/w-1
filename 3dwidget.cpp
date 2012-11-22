@@ -56,6 +56,11 @@ const QVector3D ThreeDWidget::mVertices[4] = {
 };
 
 
+const QVector3D ThreeDWidget::TooNearColor = QVector3D(138, 158, 9) / 255;
+const QVector3D ThreeDWidget::TooFarColor = QVector3D(158, 9, 138) / 255;
+const QVector3D ThreeDWidget::InvalidDepthColor = QVector3D(9, 138, 158) / 255;
+
+
 ThreeDWidget::ThreeDWidget(QWidget* parent)
     : QGLWidget(parent)
     , mXRot(DefaultXRot)
@@ -108,6 +113,12 @@ ThreeDWidget::~ThreeDWidget()
 }
 
 
+void ThreeDWidget::setVideoFrameLag(int lag)
+{
+    mVideoFrameLag = lag;
+}
+
+
 void ThreeDWidget::setVideoFrame(const XnUInt8* const pixels, int width, int height)
 {
     glPushAttrib(GL_ALL_ATTRIB_BITS);
@@ -155,12 +166,6 @@ void ThreeDWidget::setVideoFrame(const XnUInt8* const pixels, int width, int hei
     QGLFramebufferObject::blitFramebuffer(mImageFBO, rect, mImageDupFBO, rect);
 
     glPopAttrib();
-}
-
-
-void ThreeDWidget::setVideoFrameLag(int lag)
-{
-    mVideoFrameLag = lag;
 }
 
 
@@ -259,6 +264,9 @@ void ThreeDWidget::makeDepthShader(void)
     mDepthShaderProgram->bind();
     mDepthShaderProgram->setUniformValue("uDepthTexture", 0);
     mDepthShaderProgram->setUniformValueArray("uHalo", mHalo, haloArraySize);
+    mDepthShaderProgram->setUniformValue("uTooNearColor", TooNearColor);
+    mDepthShaderProgram->setUniformValue("uTooFarColor", TooFarColor);
+    mDepthShaderProgram->setUniformValue("uInvalidDepthColor", InvalidDepthColor);
 }
 
 
@@ -279,6 +287,9 @@ void ThreeDWidget::makeMixShader(void)
     mMixShaderProgram->setUniformValue("uDepthTexture", 1);
     mMixShaderProgram->setUniformValue("uImageTexture", 2);
     mMixShaderProgram->setUniformValueArray("uOffset", mOffset, 9);
+    mMixShaderProgram->setUniformValue("uTooNearColor", TooNearColor);
+    mMixShaderProgram->setUniformValue("uTooFarColor", TooFarColor);
+    mMixShaderProgram->setUniformValue("uInvalidDepthColor", InvalidDepthColor);
 }
 
 

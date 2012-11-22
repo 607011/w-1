@@ -11,18 +11,21 @@ uniform float uSaturation;
 uniform float uSharpen[9];
 uniform vec2 uOffset[9];
 uniform vec2 uSize;
+uniform vec3 uTooNearColor;
+uniform vec3 uTooFarColor;
+uniform vec3 uInvalidDepthColor;
 
 void main(void)
 {
     vec3 color = vec3(0.0);
     vec3 invisible = texture2D(uImageTexture, vTexCoord.st).bgr;
-    if (all(equal(texture2D(uDepthTexture, vTexCoord.st).bgr, vec3(0.0, 251.0 / 255.0, 190.0 / 255.0)))) {
+    if (all(equal(texture2D(uDepthTexture, vTexCoord.st).bgr, uTooNearColor))) {
         color = invisible;
     }
-    else if (all(equal(texture2D(uDepthTexture, vTexCoord.st).bgr, vec3(251.0 / 255.0, 85.0 / 255.0, 5.0 / 255.0)))) {
+    else if (all(equal(texture2D(uDepthTexture, vTexCoord.st).bgr, uTooFarColor))) {
         color = invisible;
     }
-    else if (all(equal(texture2D(uDepthTexture, vTexCoord.st).bgr, vec3(8.0 / 255.0, 98.0 / 255.0, 250.0 / 255.0)))) {
+    else if (all(equal(texture2D(uDepthTexture, vTexCoord.st).bgr, uInvalidDepthColor))) {
         color = invisible;
     }
     else {

@@ -13,7 +13,7 @@ class SensorMotor : public QObject
 
 public:
     explicit SensorMotor(QObject* parent = NULL);
-    virtual ~SensorMotor();
+    ~SensorMotor();
     bool open(void);
     void close(void);
     bool isOpen(void) const { return mOpened; }
