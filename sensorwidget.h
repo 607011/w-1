@@ -16,7 +16,7 @@ class SensorWidget : public QWidget
 
 public:
     explicit SensorWidget(QWidget* parent = NULL);
-    QSize minimumSizeHint(void) const { return QSize(640, 480); }
+    QSize minimumSizeHint(void) const { return QSize(320, 240); }
     QSize sizeHint(void) { return QSize(640, 480); }
 
 public slots:

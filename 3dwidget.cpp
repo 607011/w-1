@@ -121,6 +121,7 @@ void ThreeDWidget::setVideoFrame(const XnUInt8* const pixels, int width, int hei
             delete mImageDupFBO;
         mImageDupFBO = new QGLFramebufferObject(width, height);
     }
+    glViewport(0, 0, width, height);
     glActiveTexture(GL_TEXTURE0);
     int nextActiveVideoTexture = mActiveVideoTexture + 1;
     if (nextActiveVideoTexture >= mVideoFrameLag)
@@ -159,8 +160,6 @@ void ThreeDWidget::setVideoFrame(const XnUInt8* const pixels, int width, int hei
 
 void ThreeDWidget::setVideoFrameLag(int lag)
 {
-    Q_ASSERT(lag <= MaxVideoFrameLag);
-    Q_ASSERT(lag > 0);
     mVideoFrameLag = lag;
 }
 
@@ -180,6 +179,7 @@ void ThreeDWidget::setDepthFrame(const XnDepthPixel* const pixels, int width, in
             delete mDepthData;
         mDepthData = new GLuint[width * height];
     }
+    glViewport(0, 0, width, height);
     // aktuelle Textur festlegen
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, mDepthTextureHandle);
@@ -216,9 +216,17 @@ void ThreeDWidget::setDepthFrame(const XnDepthPixel* const pixels, int width, in
 
 void ThreeDWidget::setThresholds(int nearThreshold, int farThreshold)
 {
+    if (nearThreshold >= farThreshold)
+        return;
     mNearThreshold = nearThreshold;
     mFarThreshold = farThreshold;
     updateGL();
+}
+
+
+template <typename T>
+T square(T x) {
+    return x * x;
 }
 
 
@@ -228,7 +236,7 @@ void ThreeDWidget::makeDepthShader(void)
     qDebug() << "Making mDepthShaderProgram w/ halo radius of" << mHaloRadius << "...";
     if (mHalo)
         delete [] mHalo;
-    const int haloArraySize = 2 * mHaloRadius * 2 * mHaloRadius;
+    const int haloArraySize = square(2 * mHaloRadius);
     mHalo = new QVector2D[haloArraySize];
     int i = 0;
     for (int x = -mHaloRadius; x < mHaloRadius; ++x)
