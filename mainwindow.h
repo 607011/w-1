@@ -8,6 +8,7 @@
 #include <QCloseEvent>
 #include <QShowEvent>
 #include <QTimerEvent>
+#include <QKeyEvent>
 #include <QTime>
 #include <QImage>
 
@@ -32,6 +33,7 @@ public:
 protected:
     void closeEvent(QCloseEvent*);
     void timerEvent(QTimerEvent*);
+    void keyPressEvent(QKeyEvent*);
 
 private:
     Ui::MainWindow *ui;

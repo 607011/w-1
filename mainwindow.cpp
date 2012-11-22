@@ -23,6 +23,8 @@ MainWindow::MainWindow(QWidget* parent)
     m3DWidget = new ThreeDWidget;
     ui->gridLayout->addWidget(m3DWidget, 0, 1);
 
+    ui->frameLagSpinBox->setMaximum(ThreeDWidget::MaxVideoFrameLag);
+
     mSensorMotor.open();
 
     initSensor();
@@ -34,6 +36,7 @@ MainWindow::MainWindow(QWidget* parent)
     QObject::connect(ui->filterComboBox, SIGNAL(currentIndexChanged(int)), m3DWidget, SLOT(setFilter(int)));
     QObject::connect(ui->sharpeningSlider, SIGNAL(valueChanged(int)), m3DWidget, SLOT(setSharpening(int)));
     QObject::connect(ui->haloRadiusSpinBox, SIGNAL(valueChanged(int)), m3DWidget, SLOT(setHaloRadius(int)));
+    QObject::connect(ui->frameLagSpinBox, SIGNAL(valueChanged(int)), m3DWidget, SLOT(setVideoFrameLag(int)));
 
     QObject::connect(ui->saturationSlider, SIGNAL(valueChanged(int)), SLOT(saturationChanged(int)));
     QObject::connect(ui->contrastSlider, SIGNAL(valueChanged(int)), SLOT(contrastChanged(int)));
@@ -63,6 +66,7 @@ void MainWindow::restoreSettings(void)
     ui->contrastSlider->setValue(settings.value("Options/contrast", 100).toInt());
     ui->sharpeningSlider->setValue(settings.value("Options/sharpening", 0).toInt());
     ui->haloRadiusSpinBox->setValue(settings.value("Options/haloRadius", 5).toInt());
+    ui->frameLagSpinBox->setValue(settings.value("Options/videoFrameLag", 3).toInt());
     ui->tiltSpinBox->setValue(settings.value("Sensor/tilt", 0).toInt());
 }
 
@@ -79,6 +83,7 @@ void MainWindow::saveSettings(void)
     settings.setValue("Options/contrast", ui->contrastSlider->value());
     settings.setValue("Options/sharpening", ui->sharpeningSlider->value());
     settings.setValue("Options/haloRadius", ui->haloRadiusSpinBox->value());
+    settings.setValue("Options/videoFrameLag", ui->frameLagSpinBox->value());
     settings.setValue("Sensor/tilt", ui->tiltSpinBox->value());
 }
 
@@ -155,11 +160,11 @@ void MainWindow::timerEvent(QTimerEvent* e)
             qWarning() << "Failed updating data:" << xnGetStatusString(rc);
             return;
         }
-        m3DWidget->setThresholds(ui->nearClippingSpinBox->value(), ui->farClippingSpinBox->value());
         m3DWidget->setVideoFrame(mVideoGenerator.GetImageMap(), mVideoMetaData.XRes(), mVideoMetaData.YRes());
         m3DWidget->setDepthFrame(mDepthGenerator.GetDepthMap(), mDepthMetaData.XRes(), mDepthMetaData.YRes());
+        m3DWidget->setThresholds(ui->nearClippingSpinBox->value(), ui->farClippingSpinBox->value());
         if (++mFrameCount > 10) {
-            ui->fpsLineEdit->setText(QString("%1").arg(1e3 * mFrameCount / mT0.elapsed(), 0, 'f', 3));
+            statusBar()->showMessage(QString("%1 fps").arg(1e3 * mFrameCount / mT0.elapsed(), 0, 'f', 1));
             mT0.start();
             mFrameCount = 0;
         }
@@ -167,6 +172,20 @@ void MainWindow::timerEvent(QTimerEvent* e)
     else if (e->timerId() == mRegressTimerId) {
         regressH();
     }
+}
+
+
+void MainWindow::keyPressEvent(QKeyEvent* e)
+{
+    switch (e->key()) {
+    case Qt::Key_Escape:
+        m3DWidget->resetTransformations();
+        break;
+    default:
+        e->ignore();
+        return;
+    }
+    e->accept();
 }
 
 
@@ -194,7 +213,7 @@ void MainWindow::startSensor(void)
         mT0.start();
         mDepthGenerator.StartGenerating();
         mVideoGenerator.StartGenerating();
-        mFrameTimerId = startTimer(1000 / mVideoMetaData.FPS() / 2);
+        mFrameTimerId = startTimer(2 * 1000 / 3 / mVideoMetaData.FPS());
         mRegressTimerId = startTimer(2000);
     }
 }

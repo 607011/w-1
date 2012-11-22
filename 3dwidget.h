@@ -7,7 +7,6 @@
 #include <GL/glew.h>
 #include <QMouseEvent>
 #include <QWheelEvent>
-#include <QKeyEvent>
 #include <QRgb>
 #include <QPoint>
 #include <QVector2D>
@@ -29,6 +28,7 @@ public: // methods
     QSize minimumSizeHint(void) const { return QSize(640, 480); }
     QSize sizeHint(void) const { return QSize(640, 480); }
 
+    void resetTransformations(void);
     void setXRotation(float);
     void setYRotation(float);
     void setZRotation(float);
@@ -52,7 +52,7 @@ public: // methods
     static const GLfloat DefaultYRot;
     static const GLfloat DefaultZRot;
 
-    static const int MaxTextures = 3;
+    static const int MaxVideoFrameLag = 3;
 
 signals:
     void depthFrameReady(const QImage&);
@@ -62,6 +62,7 @@ public slots:
     void setGamma(double);
     void setSharpening(int percent);
     void setHaloRadius(int);
+    void setVideoFrameLag(int);
 
 private: // variables
     static const QVector3D mVertices[4];
@@ -77,8 +78,9 @@ private: // variables
     GLfloat mZTrans;
     GLfloat mZoom;
     QPoint mLastPos;
+    int mVideoFrameLag;
     int mActiveVideoTexture;
-    GLuint mVideoTextureHandle[MaxTextures];
+    GLuint mVideoTextureHandle[MaxVideoFrameLag];
     GLuint mDepthTextureHandle;
     QGLFramebufferObject* mDepthFBO;
     QGLFramebufferObject* mImageFBO;
@@ -110,7 +112,6 @@ protected: // methods
     void mouseReleaseEvent(QMouseEvent*);
     void mouseMoveEvent(QMouseEvent*);
     void wheelEvent(QWheelEvent*);
-    void keyPressEvent(QKeyEvent*);
 
 private: // methods
     void makeDepthShader(void);

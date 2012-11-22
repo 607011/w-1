@@ -65,6 +65,7 @@ ThreeDWidget::ThreeDWidget(QWidget* parent)
     , mYTrans(0)
     , mZTrans(0)
     , mZoom(DefaultZoom)
+    , mVideoFrameLag(3)
     , mActiveVideoTexture(0)
     , mDepthTextureHandle(0)
     , mDepthFBO(NULL)
@@ -85,7 +86,6 @@ ThreeDWidget::ThreeDWidget(QWidget* parent)
 {
     setFocus(Qt::OtherFocusReason);
     setCursor(Qt::OpenHandCursor);
-    // grabKeyboard();
     setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding);
 }
 
@@ -123,7 +123,7 @@ void ThreeDWidget::setVideoFrame(const XnUInt8* const pixels, int width, int hei
     }
     glActiveTexture(GL_TEXTURE0);
     int nextActiveVideoTexture = mActiveVideoTexture + 1;
-    if (nextActiveVideoTexture == MaxTextures)
+    if (nextActiveVideoTexture >= mVideoFrameLag)
         nextActiveVideoTexture = 0;
     glBindTexture(GL_TEXTURE_2D, mVideoTextureHandle[mActiveVideoTexture]);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, pixels);
@@ -154,7 +154,14 @@ void ThreeDWidget::setVideoFrame(const XnUInt8* const pixels, int width, int hei
     QGLFramebufferObject::blitFramebuffer(mImageFBO, rect, mImageDupFBO, rect);
 
     glPopAttrib();
-    updateGL();
+}
+
+
+void ThreeDWidget::setVideoFrameLag(int lag)
+{
+    Q_ASSERT(lag <= MaxVideoFrameLag);
+    Q_ASSERT(lag > 0);
+    mVideoFrameLag = lag;
 }
 
 
@@ -231,7 +238,6 @@ void ThreeDWidget::makeDepthShader(void)
     file.open(QIODevice::ReadOnly | QIODevice::Text);
     QTextStream in(&file);
     const QString& shaderSource = in.readAll().arg(haloArraySize);
-    qDebug() << shaderSource;
     mDepthShaderProgram->removeAllShaders();
     mDepthShaderProgram->addShaderFromSourceCode(QGLShader::Fragment, shaderSource);
     mDepthShaderProgram->addShaderFromSourceFile(QGLShader::Vertex, ":/shaders/depthvertexshader.glsl");
@@ -309,8 +315,8 @@ void ThreeDWidget::initializeGL(void)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
 
-    glGenTextures(MaxTextures, mVideoTextureHandle);
-    for (int i = 0; i < MaxTextures; ++i) {
+    glGenTextures(MaxVideoFrameLag, mVideoTextureHandle);
+    for (int i = 0; i < MaxVideoFrameLag; ++i) {
         glBindTexture(GL_TEXTURE_2D, mVideoTextureHandle[i]);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -352,45 +358,6 @@ void ThreeDWidget::resizeGL(int width, int height)
 }
 
 
-void ThreeDWidget::keyPressEvent(QKeyEvent* e)
-{
-    const float dTrans = (e->modifiers() & Qt::ShiftModifier)? 0.05f : 0.5f;
-    const float dRot = (e->modifiers() & Qt::ShiftModifier)? 0.1f : 1.0f;
-    switch (e->key()) {
-    case Qt::Key_Left:
-        mZRot -= dRot;
-        updateGL();
-        break;
-    case Qt::Key_Right:
-        mZRot += dRot;
-        updateGL();
-        break;
-    case Qt::Key_Down:
-        mZTrans -= dTrans;
-        updateGL();
-        break;
-    case Qt::Key_Up:
-        mZTrans += dTrans;
-        updateGL();
-        break;
-    case Qt::Key_Escape:
-        mZoom = DefaultZoom;
-        mXRot = DefaultXRot;
-        mYRot = DefaultYRot;
-        mZRot = DefaultYRot;
-        mXTrans = 0;
-        mYTrans = 0;
-        mZTrans = 0;
-        updateGL();
-        break;
-    default:
-        e->ignore();
-        return;
-    }
-    e->accept();
-}
-
-
 void ThreeDWidget::mousePressEvent(QMouseEvent* e)
 {
     setCursor(Qt::ClosedHandCursor);
@@ -422,6 +389,19 @@ void ThreeDWidget::mouseMoveEvent(QMouseEvent* e)
         setYTranslation(mYTrans + 0.01f * (e->y() - mLastPos.y()));
     }
     mLastPos = e->pos();
+}
+
+
+void ThreeDWidget::resetTransformations(void)
+{
+    mZoom = DefaultZoom;
+    mXRot = DefaultXRot;
+    mYRot = DefaultYRot;
+    mZRot = DefaultYRot;
+    mXTrans = 0;
+    mYTrans = 0;
+    mZTrans = 0;
+    updateGL();
 }
 
 
