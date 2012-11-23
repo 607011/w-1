@@ -57,16 +57,16 @@ void DepthWidget::paintEvent(QPaintEvent*)
         if (!mCursorPos.isNull()) {
             p.setBrush(QColor(100, 100, 250, 170));
             p.setPen(QColor(130, 130, 255, 220));
-            QRect box(mCursorPos - QPoint(85, 44), QSize(85, 44));
-            QRect textBox(box.topLeft() + QPoint(3, 3), box.bottomRight() - QPoint(3, 3));
+            const QRect box(mCursorPos - QPoint(85, 44), QSize(85, 44));
+            const QRect textBox(box.topLeft() + QPoint(3, 3), box.bottomRight() - QPoint(3, 3));
             p.setRenderHint(QPainter::Antialiasing, false);
             p.drawRect(box);
-            QPoint posInImage = QPointF((mCursorPos - mDestRect.topLeft()) * mDepthFrame.width() / mDestRect.width()).toPoint();
-            qreal z = mDepth.at(posInImage.x() + posInImage.y() * mDepthFrame.width());
-            qreal u = qreal(posInImage.x()) / mDepthFrame.width() - 0.5;
-            qreal v = qreal(posInImage.y()) / mDepthFrame.height() - 0.5;
-            qreal x = z * u / mU;
-            qreal y = z * v / mV;
+            const QPoint posInImage = QPointF((mCursorPos - mDestRect.topLeft()) * mDepthFrame.width() / mDestRect.width()).toPoint();
+            const qreal z = mDepth.at(posInImage.x() + posInImage.y() * mDepthFrame.width());
+            const qreal u = qreal(posInImage.x()) / mDepthFrame.width() - 0.5;
+            const qreal v = qreal(posInImage.y()) / mDepthFrame.height() - 0.5;
+            const qreal x = z * u / mU;
+            const qreal y = z * v / mV;
             p.setPen(QColor(10, 10, 40));
             p.setRenderHint(QPainter::Antialiasing);
             p.drawText(textBox, Qt::AlignRight | Qt::AlignVCenter,
@@ -84,7 +84,7 @@ void DepthWidget::paintEvent(QPaintEvent*)
     else {
         p.fillRect(rect(), QColor(44, 8, 7));
         p.setRenderHint(QPainter::Antialiasing);
-        p.setPen(QColor(100 * cos(1e-3 * mStartupTime.elapsed() * 6) + 155, 8, 7));
+        p.setPen(QColor(150 + int(105 * sin(6e-3 * mStartupTime.elapsed())), 8, 7));
         p.drawText(rect(), Qt::AlignHCenter | Qt::AlignVCenter, tr("Initializing sensor ... Please wait ..."));
     }
 }
