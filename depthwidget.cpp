@@ -2,26 +2,28 @@
 // All rights reserved.
 
 #include <QPainter>
-#include "sensorwidget.h"
+#include <QtCore/QDebug>
+#include "depthwidget.h"
 
 
-SensorWidget::SensorWidget(QWidget* parent)
+DepthWidget::DepthWidget(QWidget* parent)
     : QWidget(parent)
     , mWindowAspectRatio(1.0)
     , mImageAspectRatio(1.0)
     , mFPS(0)
+    , mDepthUnderCursor(-1)
 {
     setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding);
 }
 
 
-void SensorWidget::resizeEvent(QResizeEvent* e)
+void DepthWidget::resizeEvent(QResizeEvent* e)
 {
     mWindowAspectRatio = (qreal)e->size().width() / e->size().height();
 }
 
 
-void SensorWidget::paintEvent(QPaintEvent*)
+void DepthWidget::paintEvent(QPaintEvent*)
 {
     QPainter p(this);
     if (mWindowAspectRatio < mImageAspectRatio) {
@@ -44,17 +46,38 @@ void SensorWidget::paintEvent(QPaintEvent*)
         p.setRenderHint(QPainter::Antialiasing);
         p.setPen(Qt::white);
         p.drawText(mDestRect, Qt::AlignRight | Qt::AlignBottom, tr("%1 fps").arg(mFPS, 0, 'f', 1));
+        if (!mCursorPos.isNull()) {
+            p.setBrush(QColor(100, 100, 250, 170));
+            p.setPen(QColor(130, 130, 255, 220));
+            QPointF posInImage = mDepthFrame.width() * (mCursorPos - mDestRect.topLeft()) / mDestRect.width();
+            QRect box(mCursorPos - QPoint(30, 14), QSize(30, 14));
+            p.setRenderHint(QPainter::Antialiasing, false);
+            p.drawRect(box);
+            const int depth = qGray(mDepthFrame.pixel(posInImage.toPoint()));
+            p.setPen(QColor(10, 10, 40));
+            p.setRenderHint(QPainter::Antialiasing);
+            p.drawText(box, Qt::AlignHCenter | Qt::AlignVCenter, QString("%1").arg(depth));
+            p.setPen(Qt::white);
+            p.drawPoint(mCursorPos);
+        }
     }
     else {
         p.fillRect(rect(), QColor(44, 8, 7));
         p.setRenderHint(QPainter::Antialiasing);
         p.setPen(QColor(220, 40, 30));
-        p.drawText(rect(), Qt::AlignHCenter | Qt::AlignVCenter, tr("Initializing sensor ... please wait ...!"));
+        p.drawText(rect(), Qt::AlignHCenter | Qt::AlignVCenter, tr("Initializing sensor ... Please wait ..."));
     }
 }
 
 
-void SensorWidget::setDepthFrame(const QImage& frame)
+void DepthWidget::mouseMoveEvent(QMouseEvent* e)
+{
+    mCursorPos = e->pos();
+}
+
+
+
+void DepthWidget::setDepthFrame(const QImage& frame)
 {
     mDepthFrame = frame;
     mImageAspectRatio = (qreal)mDepthFrame.width() / mDepthFrame.height();

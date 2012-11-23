@@ -20,7 +20,7 @@ MainWindow::MainWindow(QWidget* parent)
     setWindowTitle(tr("%1 %2").arg(AppName).arg(AppVersion));
     setCursor(Qt::WaitCursor);
 
-    mSensorWidget = new SensorWidget;
+    mSensorWidget = new DepthWidget;
     ui->gridLayout->addWidget(mSensorWidget, 0, 0);
     m3DWidget = new ThreeDWidget;
     ui->gridLayout->addWidget(m3DWidget, 0, 1);
@@ -147,6 +147,11 @@ void MainWindow::postInitSensor(void)
 {
     XnFieldOfView fov;
     mDepthGenerator.GetFieldOfView(fov);
+    mHoriFOV = fov.fHFOV / M_PI * 180;
+    mVertFOV = fov.fVFOV / M_PI * 180;
+    qDebug() << "HFOV =" << mHoriFOV << "/ VFOV =" << mVertFOV;
+    float w = qCos(fov.fHFOV);
+    qDebug() << "w =" << w;
     m3DWidget->setFOV(fov.fHFOV/M_PI*180, fov.fVFOV/M_PI*180);
     startSensor();
     setCursor(Qt::ArrowCursor);

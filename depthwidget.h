@@ -6,16 +6,16 @@
 
 #include <QWidget>
 #include <QImage>
+#include <QPoint>
 #include <QRectF>
 #include <QResizeEvent>
 
-
-class SensorWidget : public QWidget
+class DepthWidget : public QWidget
 {
     Q_OBJECT
 
 public:
-    explicit SensorWidget(QWidget* parent = NULL);
+    explicit DepthWidget(QWidget* parent = NULL);
     QSize minimumSizeHint(void) const { return QSize(320, 240); }
     QSize sizeHint(void) { return QSize(640, 480); }
 
@@ -27,6 +27,7 @@ public slots:
 protected:
     void paintEvent(QPaintEvent*);
     void resizeEvent(QResizeEvent*);
+    void mouseMoveEvent(QMouseEvent*);
 
 private:
     QImage mDepthFrame;
@@ -34,7 +35,8 @@ private:
     qreal mImageAspectRatio;
     QRectF mDestRect;
     qreal mFPS;
-
+    int mDepthUnderCursor;
+    QPoint mCursorPos;
 };
 
 #endif // __SENSORWIDGET_H_

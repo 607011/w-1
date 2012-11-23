@@ -28,11 +28,7 @@ vec3 colorOf(in vec2 coord)
                 return uTooFarColor;
         }
     }
-    float sum = 0.0;
-    for (int i = 0; i < %2/* Platzhalter wird im C++-Code ersetzt */; ++i) {
-        sum += dot(texture2D(uDepthTexture[i], coord).rg, DepthFactor);
-    }
-    float depth = sum / float(%2);
+    float depth = mix(dot(texture2D(uDepthTexture[0], coord).rg, DepthFactor), dot(texture2D(uDepthTexture[%2-1], coord).rg, DepthFactor), 0.5);
     float k = (depth - uNearThreshold) / (uFarThreshold - uNearThreshold);
     return vec3(k, k, k);
 }

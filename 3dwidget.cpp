@@ -278,7 +278,7 @@ void ThreeDWidget::makeDepthShader(void)
     mDepthShaderProgram->link();
     mDepthShaderProgram->bind();
     for (int i = 0; i < mMergedDepthFrames; ++i)
-        mDepthShaderProgram->setUniformValue(QString("uDepthTexture[%1]").arg(i).toLatin1().constData(), i);
+        mDepthShaderProgram->setUniformValue(QString("uDepthTexture[%1]").arg(i).toLatin1().constData(), (GLuint)i);
     mDepthShaderProgram->setUniformValueArray("uHalo", mHalo, haloArraySize);
     mDepthShaderProgram->setUniformValue("uTooNearColor", TooNearColor);
     mDepthShaderProgram->setUniformValue("uTooFarColor", TooFarColor);
@@ -299,9 +299,9 @@ void ThreeDWidget::makeMixShader(void)
     mMixShaderProgram->setAttributeArray(PROGRAM_TEXCOORD_ATTRIBUTE, mTexCoords);
     mMixShaderProgram->link();
     mMixShaderProgram->bind();
-    mMixShaderProgram->setUniformValue("uVideoTexture", 0);
-    mMixShaderProgram->setUniformValue("uDepthTexture", 1);
-    mMixShaderProgram->setUniformValue("uImageTexture", 2);
+    mMixShaderProgram->setUniformValue("uVideoTexture", (GLuint)0);
+    mMixShaderProgram->setUniformValue("uDepthTexture", (GLuint)1);
+    mMixShaderProgram->setUniformValue("uImageTexture", (GLuint)2);
     mMixShaderProgram->setUniformValueArray("uOffset", mOffset, 9);
     mMixShaderProgram->setUniformValue("uTooNearColor", TooNearColor);
     mMixShaderProgram->setUniformValue("uTooFarColor", TooFarColor);
@@ -322,7 +322,7 @@ void ThreeDWidget::makeWallShader(void)
     mWallShaderProgram->setAttributeArray(PROGRAM_TEXCOORD_ATTRIBUTE, mTexCoords);
     mWallShaderProgram->link();
     mWallShaderProgram->bind();
-    mWallShaderProgram->setUniformValue("uImageTexture", 0);
+    mWallShaderProgram->setUniformValue("uImageTexture", (GLuint)0);
 }
 
 

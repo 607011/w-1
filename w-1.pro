@@ -18,14 +18,14 @@ LIBS += -L"C:/Program Files (x86)/OpenNI/Lib" \
 SOURCES += main.cpp \
     mainwindow.cpp \
     3dwidget.cpp \
-    sensorwidget.cpp \
-    sensormotor.cpp
+    sensormotor.cpp \
+    depthwidget.cpp
 
 HEADERS += mainwindow.h \
     3dwidget.h \
-    sensorwidget.h \
     main.h \
-    sensormotor.h
+    sensormotor.h \
+    depthwidget.h
 
 FORMS += mainwindow.ui
 

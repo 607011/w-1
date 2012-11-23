@@ -16,7 +16,7 @@
 #include <XnCppWrapper.h>
 
 #include "3dwidget.h"
-#include "sensorwidget.h"
+#include "depthwidget.h"
 #include "sensormotor.h"
 
 namespace Ui {
@@ -42,7 +42,7 @@ protected:
 private:
     QFuture<void> mInitFuture;
     Ui::MainWindow *ui;
-    SensorWidget* mSensorWidget;
+    DepthWidget* mSensorWidget;
     ThreeDWidget* m3DWidget;
     SensorMotor mSensorMotor;
     int mFrameTimerId;
@@ -57,6 +57,8 @@ private:
     qreal hB;
     QTime mT0;
     int mFrameCount;
+    float mHoriFOV;
+    float mVertFOV;
 
 private: // methods
     void initSensor(void);
