@@ -8,7 +8,12 @@
 #include <QImage>
 #include <QPoint>
 #include <QRectF>
+#include <QTimer>
+#include <QTime>
+#include <QVector>
 #include <QResizeEvent>
+#include <XnCppWrapper.h>
+
 
 class DepthWidget : public QWidget
 {
@@ -19,7 +24,9 @@ public:
     QSize minimumSizeHint(void) const { return QSize(320, 240); }
     QSize sizeHint(void) { return QSize(640, 480); }
 
-    inline void setFPS(qreal fps) { mFPS = fps; }
+    void setDepthFrame(const XnDepthPixel* const pixels, int width, int height);
+    void setFPS(qreal);
+    void setFOV(qreal hfov, qreal vfov);
 
 public slots:
     void setDepthFrame(const QImage&);
@@ -28,6 +35,8 @@ protected:
     void paintEvent(QPaintEvent*);
     void resizeEvent(QResizeEvent*);
     void mouseMoveEvent(QMouseEvent*);
+    void mousePressEvent(QMouseEvent*);
+    void timerEvent(QTimerEvent*);
 
 private:
     QImage mDepthFrame;
@@ -35,8 +44,15 @@ private:
     qreal mImageAspectRatio;
     QRectF mDestRect;
     qreal mFPS;
+    qreal mHFOV;
+    qreal mVFOV;
+    qreal mU;
+    qreal mV;
     int mDepthUnderCursor;
     QPoint mCursorPos;
+    QVector<XnDepthPixel> mDepth;
+    QTime mStartupTime;
+    int mStartupTimerId;
 };
 
 #endif // __SENSORWIDGET_H_

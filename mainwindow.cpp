@@ -20,8 +20,8 @@ MainWindow::MainWindow(QWidget* parent)
     setWindowTitle(tr("%1 %2").arg(AppName).arg(AppVersion));
     setCursor(Qt::WaitCursor);
 
-    mSensorWidget = new DepthWidget;
-    ui->gridLayout->addWidget(mSensorWidget, 0, 0);
+    mDepthWidget = new DepthWidget;
+    ui->gridLayout->addWidget(mDepthWidget, 0, 0);
     m3DWidget = new ThreeDWidget;
     ui->gridLayout->addWidget(m3DWidget, 0, 1);
 
@@ -40,7 +40,7 @@ MainWindow::MainWindow(QWidget* parent)
     QObject::connect(ui->saturationSlider, SIGNAL(valueChanged(int)), SLOT(saturationChanged(int)));
     QObject::connect(ui->contrastSlider, SIGNAL(valueChanged(int)), SLOT(contrastChanged(int)));
 
-    QObject::connect(m3DWidget, SIGNAL(depthFrameReady(const QImage&)), mSensorWidget, SLOT(setDepthFrame(const QImage&)));
+    QObject::connect(m3DWidget, SIGNAL(depthFrameReady(const QImage&)), mDepthWidget, SLOT(setDepthFrame(const QImage&)));
 
     QObject::connect(this, SIGNAL(sensorInitialized()), SLOT(postInitSensor()));
 
@@ -53,7 +53,7 @@ MainWindow::MainWindow(QWidget* parent)
 
 MainWindow::~MainWindow()
 {
-    delete mSensorWidget;
+    delete mDepthWidget;
     delete m3DWidget;
     delete ui;
 }
@@ -147,12 +147,10 @@ void MainWindow::postInitSensor(void)
 {
     XnFieldOfView fov;
     mDepthGenerator.GetFieldOfView(fov);
+    mDepthWidget->setFOV(fov.fHFOV, fov.fVFOV);
     mHoriFOV = fov.fHFOV / M_PI * 180;
     mVertFOV = fov.fVFOV / M_PI * 180;
-    qDebug() << "HFOV =" << mHoriFOV << "/ VFOV =" << mVertFOV;
-    float w = qCos(fov.fHFOV);
-    qDebug() << "w =" << w;
-    m3DWidget->setFOV(fov.fHFOV/M_PI*180, fov.fVFOV/M_PI*180);
+    m3DWidget->setFOV(mHoriFOV, mVertFOV);
     startSensor();
     setCursor(Qt::ArrowCursor);
     statusBar()->showMessage(tr("Sensor initialized."), 3000);
@@ -181,9 +179,10 @@ void MainWindow::timerEvent(QTimerEvent* e)
         }
         m3DWidget->setVideoFrame(mVideoGenerator.GetImageMap(), mVideoMetaData.XRes(), mVideoMetaData.YRes());
         m3DWidget->setDepthFrame(mDepthGenerator.GetDepthMap(), mDepthMetaData.XRes(), mDepthMetaData.YRes());
+        mDepthWidget->setDepthFrame(mDepthGenerator.GetDepthMap(), mDepthMetaData.XRes(), mDepthMetaData.YRes());
         m3DWidget->setThresholds(ui->nearClippingSpinBox->value(), ui->farClippingSpinBox->value());
         if (++mFrameCount > 10) {
-            mSensorWidget->setFPS(1e3 * mFrameCount / mT0.elapsed());
+            mDepthWidget->setFPS(1e3 * mFrameCount / mT0.elapsed());
             mT0.start();
             mFrameCount = 0;
         }

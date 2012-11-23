@@ -42,7 +42,7 @@ protected:
 private:
     QFuture<void> mInitFuture;
     Ui::MainWindow *ui;
-    DepthWidget* mSensorWidget;
+    DepthWidget* mDepthWidget;
     ThreeDWidget* m3DWidget;
     SensorMotor mSensorMotor;
     int mFrameTimerId;

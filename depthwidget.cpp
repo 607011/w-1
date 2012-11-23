@@ -3,17 +3,25 @@
 
 #include <QPainter>
 #include <QtCore/QDebug>
+#include <qmath.h>
 #include "depthwidget.h"
-
+#include "string.h"
 
 DepthWidget::DepthWidget(QWidget* parent)
     : QWidget(parent)
     , mWindowAspectRatio(1.0)
     , mImageAspectRatio(1.0)
     , mFPS(0)
+    , mHFOV(45.0)
+    , mVFOV(45.0)
+    , mU(0.707107)
+    , mV(0.707107)
     , mDepthUnderCursor(-1)
+    , mStartupTimerId(0)
 {
     setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding);
+    mStartupTime.start();
+    mStartupTimerId = startTimer(1000/25);
 }
 
 
@@ -45,28 +53,46 @@ void DepthWidget::paintEvent(QPaintEvent*)
         p.setOpacity(1.0);
         p.setRenderHint(QPainter::Antialiasing);
         p.setPen(Qt::white);
-        p.drawText(mDestRect, Qt::AlignRight | Qt::AlignBottom, tr("%1 fps").arg(mFPS, 0, 'f', 1));
+        p.drawText(mDestRect.translated(-3, -3), Qt::AlignRight | Qt::AlignBottom, tr("%1 fps").arg(mFPS, 0, 'f', 1));
         if (!mCursorPos.isNull()) {
             p.setBrush(QColor(100, 100, 250, 170));
             p.setPen(QColor(130, 130, 255, 220));
-            QPointF posInImage = mDepthFrame.width() * (mCursorPos - mDestRect.topLeft()) / mDestRect.width();
-            QRect box(mCursorPos - QPoint(30, 14), QSize(30, 14));
+            QRect box(mCursorPos - QPoint(85, 44), QSize(85, 44));
+            QRect textBox(box.topLeft() + QPoint(3, 3), box.bottomRight() - QPoint(3, 3));
             p.setRenderHint(QPainter::Antialiasing, false);
             p.drawRect(box);
-            const int depth = qGray(mDepthFrame.pixel(posInImage.toPoint()));
+            QPoint posInImage = QPointF((mCursorPos - mDestRect.topLeft()) * mDepthFrame.width() / mDestRect.width()).toPoint();
+            qreal z = mDepth.at(posInImage.x() + posInImage.y() * mDepthFrame.width());
+            qreal u = qreal(posInImage.x()) / mDepthFrame.width() - 0.5;
+            qreal v = qreal(posInImage.y()) / mDepthFrame.height() - 0.5;
+            qreal x = z * u / mU;
+            qreal y = z * v / mV;
             p.setPen(QColor(10, 10, 40));
             p.setRenderHint(QPainter::Antialiasing);
-            p.drawText(box, Qt::AlignHCenter | Qt::AlignVCenter, QString("%1").arg(depth));
+            p.drawText(textBox, Qt::AlignRight | Qt::AlignVCenter,
+                       QString("x = %1 cm\n"
+                               "y = %2 cm\n"
+                               "z = %3 cm")
+                       .arg(1e-1 * x, 0, 'f', 1)
+                       .arg(1e-1 * y, 0, 'f', 1)
+                       .arg(1e-1 * z, 0, 'f', 1));
             p.setPen(Qt::white);
             p.drawPoint(mCursorPos);
+            p.drawText(QRect(3, 3, 60, 30), Qt::AlignLeft | Qt::AlignVCenter, QString("u = %1\nv = %2").arg(u, 0, 'f', 3).arg(v, 0, 'f', 3));
         }
     }
     else {
         p.fillRect(rect(), QColor(44, 8, 7));
         p.setRenderHint(QPainter::Antialiasing);
-        p.setPen(QColor(220, 40, 30));
+        p.setPen(QColor(100 * cos(1e-3 * mStartupTime.elapsed() * 6) + 155, 8, 7));
         p.drawText(rect(), Qt::AlignHCenter | Qt::AlignVCenter, tr("Initializing sensor ... Please wait ..."));
     }
+}
+
+
+void DepthWidget::mousePressEvent(QMouseEvent* e)
+{
+    mCursorPos = e->pos();
 }
 
 
@@ -76,10 +102,48 @@ void DepthWidget::mouseMoveEvent(QMouseEvent* e)
 }
 
 
+void DepthWidget::timerEvent(QTimerEvent* e)
+{
+    if (e->timerId() == mStartupTimerId) {
+        if (mDepthFrame.isNull()) {
+            update();
+            e->accept();
+        }
+        else {
+            killTimer(mStartupTimerId);
+            e->ignore();
+        }
+    }
+}
+
+
+void DepthWidget::setFPS(qreal fps)
+{
+    mFPS = fps;
+}
+
+
+void DepthWidget::setFOV(qreal hfov, qreal vfov)
+{
+    mHFOV = hfov;
+    mVFOV = vfov;
+    mU = cos(mHFOV);
+    mV = cos(mVFOV);
+    qDebug() << "cos(" << (mHFOV/M_PI*180) << "deg) =" << mU << ", cos(" << (mVFOV/M_PI*180) << "deg) =" << mV;
+}
+
 
 void DepthWidget::setDepthFrame(const QImage& frame)
 {
     mDepthFrame = frame;
     mImageAspectRatio = (qreal)mDepthFrame.width() / mDepthFrame.height();
     update();
+}
+
+
+void DepthWidget::setDepthFrame(const XnDepthPixel* const pixels, int width, int height)
+{
+    mDepth.resize(width * height);
+    const size_t sz =  width * height * sizeof(XnDepthPixel);
+    memcpy_s(mDepth.data(), sz, pixels, sz);
 }
